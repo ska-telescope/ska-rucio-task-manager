@@ -1,0 +1,17 @@
+test-hello-world-stub:
+    description: "Test hello world stub"
+    module_name: "tasks.stubs"
+    class_name: "StubHelloWorld"
+    enabled: true
+    args:
+    kwargs:
+      text: "Hello World!"
+
+test-rucio-api-stub:
+  description: "Test Rucio API stub (ping, whoami)"
+  module_name: "tasks.stubs"
+  class_name: "StubRucioAPI"
+  enabled: true
+  args:
+  kwargs:
+    dummy:

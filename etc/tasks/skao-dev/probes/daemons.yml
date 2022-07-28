@@ -1,0 +1,27 @@
+get-daemon-info-dev:
+  description: "Get daemon information from k8s cluster"
+  module_name: "tasks.probes.daemons"
+  class_name: "ProbesDaemons"
+  enabled: true
+  args:
+  kwargs:
+    kube_config_path: /etc/cluster-config.yml
+    daemon_like_names:
+      - abacus-account
+      - abacus-rse
+      - conveyor-finisher
+      - conveyor-poller
+      - conveyor-submitter
+      - hermes2
+      - judge-cleaner
+      - judge-evaluator
+      - judge-injector
+      - judge-repairer
+      - reaper
+      - transmogrifier
+      - undertaker
+    namespace: rucio-test
+    databases:
+      - type: es
+        uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+        index: daemons
