@@ -23,9 +23,9 @@ helm-publish:
     name: alpine/helm:latest
     entrypoint: [""]
   script:
-    - echo $CI_REGISTRY
-    - helm repo add --username $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD rucio-analysis-charts $CI_REGISTRY
+    - helm repo add --username $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD repo https://gitlab.com/api/v4/projects/38166490/packages/helm/stable
     - helm package etc/helm
     - export CHART_NAME=`ls | grep rucio-analysis*.tgz`
-    - helm push $(CHART_NAME) rucio-analysis-charts
+    - helm plugin install https://github.com/chartmuseum/helm-push
+    - helm cm-push $(CHART_NAME) repo
 
