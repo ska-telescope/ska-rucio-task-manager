@@ -1,0 +1,19 @@
+image: docker:git
+services:
+- docker:dind
+
+stages:
+- build
+
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+build:
+  only:
+    - master
+  stage: build
+  script:
+    - make skao
+    - docker tag rucio-analysis:$(cat BASE_RUCIO_CLIENT_TAG) $CI_REGISTRY_IMAGE:$(cat BASE_RUCIO_CLIENT_TAG) 
+    - docker push $CI_REGISTRY_IMAGE:$(cat BASE_RUCIO_CLIENT_TAG)
+
