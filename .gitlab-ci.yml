@@ -3,7 +3,7 @@ services:
 - docker:dind
 
 stages:
-- build
+#- build
 - helm-publish
 
 before_script:
