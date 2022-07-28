@@ -23,6 +23,7 @@ helm-publish:
     name: alpine/helm:latest
     entrypoint: [""]
   script:
+    - echo $CI_REGISTRY
     - helm repo add --username $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD rucio-analysis-charts $CI_REGISTRY
     - helm package etc/helm
     - export CHART_NAME=`ls | grep rucio-analysis*.tgz`
