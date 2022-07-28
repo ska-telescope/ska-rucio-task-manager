@@ -10,7 +10,7 @@ before_script:
 
 build:
   only:
-    - master
+    - main
   stage: build
   script:
     - make skao
