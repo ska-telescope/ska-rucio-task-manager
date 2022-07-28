@@ -1,6 +1,6 @@
 image:
-  repository: registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/ska-rucio-analysis-client
-  tag: latest
+  repository: registry.gitlab.com/ska-telescope/src/ska-rucio-task-manager
+  tag: release-1.29.0
   pullPolicy: Always
 
 deployment:
