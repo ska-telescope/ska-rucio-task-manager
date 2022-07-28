@@ -13,7 +13,6 @@ build:
     - main
   stage: build
   script:
-    - make skao
-    - docker tag rucio-analysis:$(cat BASE_RUCIO_CLIENT_TAG) $CI_REGISTRY_IMAGE:$(cat BASE_RUCIO_CLIENT_TAG) 
+    - docker build . -f Dockerfile --build-arg BASE_RUCIO_CLIENT_IMAGE=registry.gitlab.com/ska-telescope/src/ska-rucio-client --build-arg BASE_RUCIO_CLIENT_TAG=$(cat BASE_RUCIO_CLIENT_TAG) --tag $CI_REGISTRY_IMAGE:$(cat BASE_RUCIO_CLIENT_TAG)
     - docker push $CI_REGISTRY_IMAGE:$(cat BASE_RUCIO_CLIENT_TAG)
 
