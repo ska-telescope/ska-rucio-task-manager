@@ -1,92 +1,322 @@
-# SKA Rucio Task Manager
+# rucio-task-manager
 
+A modular and extensible framework for performing tasks on a Rucio datalake.
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+# Architecture
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/ska-telescope/src/ska-rucio-task-manager.git
-git branch -M main
-git push -uf origin main
+  ├── Dockerfile
+  ├── etc
+  │   ├── helm
+  │   ├── docker
+  │   └── tasks
+  │      └── <deployment>
+  │         └── probes
+  │         └── reports
+  │         └── sync
+  │         └── tests
+  ├── LICENSE
+  ├── Makefile
+  ├── README.md
+  ├── requirements.txt
+  └── src
+      |── common
+      └── tasks
+         └── probes
+         └── reports
+         └── sync
+         └── tests
+
 ```
 
-## Integrate with your tools
+Fundamentally, this framework is a task scheduler for Rucio. A "task" is any operation or sequence of operations that 
+can be performed on the datalake.
 
-- [ ] [Set up project integrations](https://gitlab.com/ska-telescope/src/ska-rucio-task-manager/-/settings/integrations)
+Within this framework, a task is defined by two parts: the logic and the definition. Task logic should be sufficiently 
+abstracted & parameterised so as to clearly demarcate these two parts, allowing for easy re-use and chaining of tasks.
 
-## Collaborate with your team
+The source for the task logic is kept in `src/tasks`. The structure of `src/tasks` takes the following 
+format: `<task_type>/<task_name>.yml` where, for consistency, `<task_type>` should be one of:
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+- probes (cluster health, uptime etc.)
+- reports
+- sync (syncing functionality, e.g. databases)
+- tests
 
-## Test and Deploy
+Other categories may be added as needed.
 
-Use the built-in continuous integration in GitLab.
+Task definitions are written in yaml and stored in `etc/tasks`. Each definition contains fields to specify the task 
+logic module to be used and any necessary corresponding arguments. The structure of `etc/tasks` takes the following 
+format: `<deployment>/<task_type>/<task_name>.yml`.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+A Helm chart for deployment to a kubernetes cluster is kept in `etc/helm`.
 
-***
+# Usage
 
-# Editing this README
+This framework is designed to be run in a dockerised environment. It currently supports authentication with the datalake via userpass, x509 and OpenID Connect. Note that with only userpass authentication, some operations e.g. upload/delete on Grid managed storage sites will be restricted.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Images should be built off a preexisting dockerised Rucio client image. This image could be the de facto standard provided by the Rucio maintainers (https://github.com/rucio/containers/tree/master/clients), included in the root `Makefile` as target "rucio", or an extended image. Client images can be extended to contain the prerequisite certificate bundles, VOMS setup and Rucio template configs for a specific datalake.
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Extended images currently exist for _prototype skao_ datalakes. Builds for other datalake instances can be enabled by adding a new `docker build` routine as a new target in the root `Makefile` with the corresponding build arguments for the base client image and tag.
 
-## Name
-Choose a self-explaining name for your project.
+When a change is made to either the logic or definition (unless only the definition has changed and is being supplied as an url in the **TASK_FILE_PATH**), the image will need to be rebuilt, e.g. for skao images:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```bash
+eng@ubuntu:~/rucio-analysis$ make skao
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Required environment variables
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+To use the framework, it is first necessary to set a few environment variables. A brief description of each is given below:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+- **RUCIO_CFG_AUTH_TYPE**: the authentication type (userpass||x509||oidc)
+- **TASK_FILE_PATH**: the relative path from the package root to the task file or url
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Depending on whether they are already set in the image's baked-in `rucio.cfg`, the following may need to be set:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- **RUCIO_CFG_RUCIO_HOST**: the Rucio server host
+- **RUCIO_CFG_AUTH_HOST**: the Rucio auth host
+- **RUCIO_CFG_ACCOUNT**: the Rucio account under which the tasks are to be performed
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Additionally, there are authentication type dependent variables that must be set.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### Authentication by username/password
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+For "userpass" authentication, the following variables are also required:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+- **RUCIO_CFG_USERNAME**: username
+- **RUCIO_CFG_PASSWORD**: the corresponding password for the user
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Authentication by X.509
 
-## License
-For open source projects, say how it is licensed.
+For "x509" authentication, it is possible to supply the necessary credentials via two methods.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+If the key/certificate values are stored in environment variables as plaintext, e.g. coming from a k8s secret, then:
+
+- **RUCIO_CFG_CLIENT_CERT_VALUE**: a valid X.509 certificate
+- **RUCIO_CFG_CLIENT_KEY_VALUE**: a valid X.509 key
+
+Alternatively, the paths to the key/certificate can be held in the following variables:
+
+- **RUCIO_CFG_CLIENT_CERT**: path to a valid X.509 certificate 
+- **RUCIO_CFG_CLIENT_KEY**: path to a valid X.509 key
+- **VOMS**: the virtual organisation that the user belongs to
+
+but the key/certificate **must be volume mounted to these locations**.
+
+### Authentication by OpenID Connect
+
+For "oidc" authentication, it is possible to supply the necessary credentials via two methods.
+
+The first method assumes that the user has a client configuration generated by the `oidc-agent` tool. This client should have a refresh token attached to it in order that access tokens can be generated when required. This is useful if asynchronous cronjobs need to be run.
+
+The encryped oidc-agent client configuration is stored in an environment variable as plaintext:
+
+- **OIDC_AGENT_AUTH_CLIENT_CFG_VALUE**: an encrypted oidc-agent client with refresh token
+- **OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD**: the password to decrypt this client
+
+The second method assumes that the user has an access token:
+
+- **OIDC_ACCESS_TOKEN**: an encrypted oidc-agent client with refresh token
+
+Both methods require the Rucio account to be explicitly set:
+
+- **RUCIO_CFG_ACCOUNT**: the Rucio account under which the tasks are to be performed
+
+Depending on whether they are already set in the image's baked-in `rucio.cfg`, the following may need to be set:
+
+- **RUCIO_CFG_OIDC_SCOPE**: list of OIDC scopes
+- **RUCIO_CFG_OIDC_AUDIENCE**: list of OIDC audiences
+
+## Examples
+
+In all the examples below, it is also possible to override other `RUCIO_*` environment variables. If they are not explicitly supplied, they will be taken from the `rucio.cfg`.
+
+### userpass
+
+```bash
+eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+-e RUCIO_CFG_AUTH_TYPE=userpass \
+-e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
+-e RUCIO_CFG_PASSWORD=$RUCIO_CFG_PASSWORD \
+-e TASK_FILE_PATH=etc/tasks/stubs.yml \
+--name=rucio-analysis rucio-analysis:skao
+```
+
+Additionally, for development purposes, it is possible to mount the package from the host directly into the container provided you have exported the project's root directory path as **RUCIO_ANALYSIS_ROOT**, e.g.:
+
+```bash
+eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+-e RUCIO_CFG_AUTH_TYPE=userpass \
+-e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
+-e RUCIO_CFG_PASSWORD=$RUCIO_CFG_PASSWORD \
+-e TASK_FILE_PATH=etc/tasks/stubs.yml \
+-v $RUCIO_ANALYSIS_ROOT:/opt/rucio-analysis \
+--name=rucio-analysis rucio-analysis:skao
+```
+
+With this, it is not required to rebuilt the image everytime it is run.
+
+### x509
+
+#### By passing in key/certificate values as plaintext
+
+```bash
+eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+-e RUCIO_CFG_AUTH_TYPE=oidc \
+-e RUCIO_CFG_CLIENT_CERT_VALUE="`cat $RUCIO_CFG_CLIENT_CERT`" \
+-e RUCIO_CFG_CLIENT_KEY_VALUE="`cat $RUCIO_CFG_CLIENT_KEY`" \
+-e VOMS=skatelescope.eu \
+-e RUCIO_CFG_ACCOUNT=root \
+-e TASK_FILE_PATH=etc/tasks/stubs.yml \
+--name=rucio-analysis rucio-analysis:skao
+```
+
+#### By passing in key/certificate paths
+
+For X.509 authentication with Rucio via paths you must bind the certificate credentials to a volume inside the container, e.g.:
+
+```bash
+eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+-e RUCIO_CFG_AUTH_TYPE=x509 \
+-e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e RUCIO_CFG_CLIENT_CERT=/opt/rucio/etc/client.crt \
+-e RUCIO_CFG_CLIENT_KEY=/opt/rucio/etc/client.key \
+-e VOMS=skatelescope.eu \
+-e TASK_FILE_PATH=etc/tasks/stubs.yml \
+-v $RUCIO_CFG_CLIENT_CERT:/opt/rucio/etc/client.crt \
+-v $RUCIO_CFG_CLIENT_KEY:/opt/rucio/etc/client.key \
+--name=rucio-analysis rucio-analysis:skao
+```
+
+### oidc
+
+#### By passing in an oidc-agent client configuration
+
+```bash
+eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+-e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
+-e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e OIDC_AGENT_AUTH_CLIENT_CFG_VALUE="`cat ~/.oidc-agent/<client_name>`" \
+-e OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD=$OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD \
+-e TASK_FILE_PATH=etc/tasks/stubs.yml \
+--name=rucio-analysis rucio-analysis:skao
+```
+
+#### By passing in an access token
+
+For OIDC authentication with Rucio via an access token:
+
+```bash
+eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+-e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
+-e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
+-e TASK_FILE_PATH=etc/tasks/stubs.yml \
+--name=rucio-analysis rucio-analysis:skao
+```
+
+# Deployment
+
+## Kubernetes
+
+Deployment in a kubernetes cluster is managed by Helm. 
+
+A rucio-analysis image must be built, tagged and pushed to a location accessible to the cluster, e.g. for SKAO's gitlab:
+
+```bash
+eng@ubuntu:~/rucio-analysis$ docker build .
+eng@ubuntu:~/rucio-analysis$ docker tag rucio-analysis:skao registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/ska-rucio-analysis-client:latest
+eng@ubuntu:~/rucio-analysis$ docker push registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/ska-rucio-analysis-client:latest
+```
+
+As is standard procedure for Helm, the values in `etc/helm/values.yaml` can be adjusted accordingly. 
+
+Variables to be directly assigned as environment variables to the container can be specified in the `config` section, e.g.
+
+```yaml
+config:
+  RUCIO_CFG_RUCIO_HOST: https://srcdev.skatelescope.org/rucio-dev
+  RUCIO_CFG_AUTH_HOST: https://srcdev.skatelescope.org/rucio-dev
+```
+
+Secrets such as certificates and keys can be created, e.g. 
+
+```bash
+$ kubectl create secret generic oidc-agent-auth-client --from-file=cfg=/path/to/file --from-literal=password=<password>
+```
+then specified in the `secrets` section:
+
+```yaml
+secrets:
+  - name: OIDC_AGENT_AUTH_CLIENT_CFG_VALUE
+    fromSecretName: oidc-agent-auth-client
+    fromSecretKey: cfg
+  - name: OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD
+    fromSecretName: oidc-agent-auth-client
+    fromSecretKey: password
+```
+
+to be similarly assigned as environment variables in the container.
+
+Cronjobs for tasks can be scheduled by adding a new entry to the `cronjobs` section, e.g.
+
+```yaml
+cronjobs:
+  - name: <task_name>
+    minute: "0"
+    hour: "*"
+    day: "*"
+    month: "*"
+    weekday: "*"
+    task_file_path: "path/to/test"
+    disabled: no
+```
+
+Task files can either be specified as a path, `task_file_path`, or inline as yaml under `task_file_yaml`. If both are specified, then the inline yaml takes preference.
+
+It is possible to substitute secrets into tasks using j2 syntax ( `{{ VARIABLE }}`), e.g.
+
+```bash
+$ kubectl create secret generic task-stubs --from-literal=text=HelloWorld
+```
+
+```yaml
+secrets:
+  - name: TASK_STUBS_TEXT
+    fromSecretName: task-stubs
+    fromSecretKey: text
+    
+cronjobs:
+  - name: stubs
+    minute: "*/15"
+    hour: "*"
+    day: "*"
+    month: "*"
+    weekday: "*"
+    task_file_yaml: 
+      test-hello-world-stub:
+        description: Test hello world stub
+        module_name: tasks.stubs
+        class_name: StubHelloWorld
+        enabled: true
+        args:
+        kwargs:
+          text: {{ TASK_STUBS_TEXT }}
+    disabled: yes
+```
+
+# Development
+
+## Creating a new task
+
+The procedure for creating a new tests is as follows:
+
+1. Take a copy of the `TestStubHelloWorld` class stub in `src/tasks/stubs.py` and rename both the file and class name.
+2. Amend the entrypoint `run()` function as desired. Functionality for communicating with Rucio either by the CLI or API is provided via the wrapper and helper functions in `rucio/wrappers.py` and `rucio/helpers.py` respectively. Alternatively, you can use the client functions directly. Example usage can be found in the `StubRucioAPI` class stub in `src/tasks/stubs.py`.
+3. Create a new task definition file e.g. `etc/tasks/test.yml` copying the format of the `test-hello-world-stub` definition in `etc/tasks/stubs.yml`. A task has the following mandatory fields:
+   - `module_name` (starting from and including the `tasks.` prefix) and `class_name`, set accordingly to match the modules/classes redefined in step 1,
+   - `args` and `kwargs` keys corresponding to the parameters injected into the task's entry point `run()`,
+   - `description`, and
+   - `enabled`.

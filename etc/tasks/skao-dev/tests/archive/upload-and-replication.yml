@@ -1,0 +1,52 @@
+test-upload-dev:
+  description: "Test uploading via different protocols to RSEs."
+  module_name: "tasks.tests.upload"
+  class_name: "TestUpload"
+  enabled: true
+  args:
+  kwargs:
+    n_files: 1
+    sizes:
+      - 100000 # bytes
+    lifetime: 3600 # seconds
+    protocols:
+      - gsiftp
+      - root
+      - davs
+      - https
+    rses:
+      - MANCHESTER
+      - LANCASTER
+      - IDIA
+      - DESY_DCACHE
+      - AARNET_PER
+    scope: testing
+    databases:
+      - type: es
+        uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+        index: custom
+
+test-upload-replication-dev:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: true
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    sizes:
+      - 100000 # bytes
+    lifetime: 3600 # seconds
+    rses:
+      - MANCHESTER
+      - LANCASTER
+      - IDIA
+      - DESY_DCACHE
+      - AARNET_PER
+    scope: testing
+    databases:
+      - type: es
+        uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+        index: custom
+
