@@ -27,5 +27,5 @@ helm-publish:
     - helm package etc/helm
     - export CHART_NAME=`ls | grep rucio-analysis*.tgz`
     - helm plugin install https://github.com/chartmuseum/helm-push
-    - helm cm-push $(CHART_NAME) repo
+    - helm cm-push `ls | grep rucio-analysis*.tgz` repo
 
