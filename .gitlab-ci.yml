@@ -3,7 +3,8 @@ services:
 - docker:dind
 
 stages:
-- build
+#- build
+- helm-publish
 
 before_script:
   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -15,4 +16,15 @@ build:
   script:
     - docker build . -f Dockerfile --build-arg BASE_RUCIO_CLIENT_IMAGE=registry.gitlab.com/ska-telescope/src/ska-rucio-client --build-arg BASE_RUCIO_CLIENT_TAG=$(cat BASE_RUCIO_CLIENT_TAG) --tag $CI_REGISTRY_IMAGE:$(cat BASE_RUCIO_CLIENT_TAG)
     - docker push $CI_REGISTRY_IMAGE:$(cat BASE_RUCIO_CLIENT_TAG)
+
+helm-publish:
+  stage: helm-publish
+  image:
+    name: alpine/helm:latest
+    entrypoint: [""]
+  script:
+    - helm repo add --username $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD rucio-analysis-charts $CI_REGISTRY
+    - helm package etc/helm
+    - export CHART_NAME=`ls | grep rucio-analysis*.tgz`
+    - helm push $(CHART_NAME) rucio-analysis-charts
 
