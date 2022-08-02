@@ -10,6 +10,9 @@ USER root
 # repo for oidc-agent
 RUN wget https://repo.data.kit.edu/data-kit-edu-centos7.repo -O /etc/yum.repos.d/data-kit-edu-centos7.repo
 
+# fix for /bin/bin /in oidc-agent-service
+RUN sed -i 's/bin\/bin/bin/' /usr/bin/oidc-agent-service
+
 RUN yum -y install wget vim python3 python3-devel openssl-devel swig gcc-c++ oidc-agent
 
 RUN python3 -m pip install --upgrade pip
