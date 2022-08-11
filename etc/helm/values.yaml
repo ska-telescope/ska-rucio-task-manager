@@ -4,7 +4,7 @@ image:
   pullPolicy: Always
 
 deployment:
-  namespace: rucio-analysis
+  namespace: rucio-task-manager
 
 config:
   RUCIO_CFG_RUCIO_HOST: https://srcdev.skatelescope.org/rucio-dev

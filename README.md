@@ -62,7 +62,7 @@ Extended images currently exist for _prototype skao_ datalakes. Builds for other
 When a change is made to either the logic or definition (unless only the definition has changed and is being supplied as an url in the **TASK_FILE_PATH**), the image will need to be rebuilt, e.g. for skao images:
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ make skao
+eng@ubuntu:~/rucio-task-manager$ make skao
 ```
 
 ## Required environment variables
@@ -135,25 +135,25 @@ In all the examples below, it is also possible to override other `RUCIO_*` envir
 ### userpass
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=userpass \
 -e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
 -e RUCIO_CFG_PASSWORD=$RUCIO_CFG_PASSWORD \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
---name=rucio-analysis rucio-analysis:skao
+--name=rucio-task-manager rucio-task-manager:skao
 ```
 
-Additionally, for development purposes, it is possible to mount the package from the host directly into the container provided you have exported the project's root directory path as **RUCIO_ANALYSIS_ROOT**, e.g.:
+Additionally, for development purposes, it is possible to mount the package from the host directly into the container provided you have exported the project's root directory path as **RUCIO_TASK_MANAGER_ROOT**, e.g.:
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=userpass \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
 -e RUCIO_CFG_PASSWORD=$RUCIO_CFG_PASSWORD \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
--v $RUCIO_ANALYSIS_ROOT:/opt/rucio-analysis \
---name=rucio-analysis rucio-analysis:skao
+-v RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
+--name=rucio-task-manager rucio-task-manager:skao
 ```
 
 With this, it is not required to rebuilt the image everytime it is run.
@@ -163,14 +163,14 @@ With this, it is not required to rebuilt the image everytime it is run.
 #### By passing in key/certificate values as plaintext
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=oidc \
 -e RUCIO_CFG_CLIENT_CERT_VALUE="`cat $RUCIO_CFG_CLIENT_CERT`" \
 -e RUCIO_CFG_CLIENT_KEY_VALUE="`cat $RUCIO_CFG_CLIENT_KEY`" \
 -e VOMS=skatelescope.eu \
 -e RUCIO_CFG_ACCOUNT=root \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
---name=rucio-analysis rucio-analysis:skao
+--name=rucio-task-manager rucio-task-manager:skao
 ```
 
 #### By passing in key/certificate paths
@@ -178,7 +178,7 @@ eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
 For X.509 authentication with Rucio via paths you must bind the certificate credentials to a volume inside the container, e.g.:
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=x509 \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e RUCIO_CFG_CLIENT_CERT=/opt/rucio/etc/client.crt \
@@ -187,7 +187,7 @@ eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 -v $RUCIO_CFG_CLIENT_CERT:/opt/rucio/etc/client.crt \
 -v $RUCIO_CFG_CLIENT_KEY:/opt/rucio/etc/client.key \
---name=rucio-analysis rucio-analysis:skao
+--name=rucio-task-manager rucio-task-manager:skao
 ```
 
 ### oidc
@@ -195,13 +195,13 @@ eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
 #### By passing in an oidc-agent client configuration
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_VALUE="`cat ~/.oidc-agent/<client_name>`" \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD=$OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
---name=rucio-analysis rucio-analysis:skao
+--name=rucio-task-manager rucio-task-manager:skao
 ```
 
 #### By passing in an access token
@@ -209,12 +209,12 @@ eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
 For OIDC authentication with Rucio via an access token:
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
+eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
---name=rucio-analysis rucio-analysis:skao
+--name=rucio-task-manager rucio-task-manager:skao
 ```
 
 # Deployment
@@ -223,12 +223,12 @@ eng@ubuntu:~/rucio-analysis$ docker run --rm -it \
 
 Deployment in a kubernetes cluster is managed by Helm. 
 
-A rucio-analysis image must be built, tagged and pushed to a location accessible to the cluster, e.g. for SKAO's gitlab:
+A rucio-task-manager image must be built, tagged and pushed to a location accessible to the cluster, e.g. for SKAO's gitlab:
 
 ```bash
-eng@ubuntu:~/rucio-analysis$ docker build .
-eng@ubuntu:~/rucio-analysis$ docker tag rucio-analysis:skao registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/ska-rucio-analysis-client:latest
-eng@ubuntu:~/rucio-analysis$ docker push registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/ska-rucio-analysis-client:latest
+eng@ubuntu:~/rucio-task-manager$ docker build .
+eng@ubuntu:~/rucio-task-manager$ docker tag rucio-task-manager:skao registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/rucio-task-manager-client:latest
+eng@ubuntu:~/rucio-task-manager$ docker push registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/rucio-task-manager-client:latest
 ```
 
 As is standard procedure for Helm, the values in `etc/helm/values.yaml` can be adjusted accordingly. 
