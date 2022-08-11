@@ -1,5 +1,5 @@
-name: rucio-analysis
-description: A chart for the deployment of rucio-analysis
+name: rucio-task-manager
+description: A chart for the deployment of rucio-task-manager
 version: 1.1.1
 apiVersion: v1
 keywords:
