@@ -3,7 +3,7 @@ ARG BASE_RUCIO_CLIENT_TAG
 
 FROM $BASE_RUCIO_CLIENT_IMAGE:$BASE_RUCIO_CLIENT_TAG
 
-ENV RUCIO_ANALYSIS_ROOT /opt/rucio-analysis
+ENV RUCIO_TASK_MANAGER_ROOT /opt/rucio-task-manager
 
 USER root
 
@@ -21,9 +21,9 @@ COPY requirements.txt /tmp/requirements.txt
 
 RUN python3 -m pip install -r /tmp/requirements.txt
 
-COPY --chown=user . ${RUCIO_ANALYSIS_ROOT}
+COPY --chown=user . ${RUCIO_TASK_MANAGER_ROOT}
 
-WORKDIR ${RUCIO_ANALYSIS_ROOT}
+WORKDIR ${RUCIO_TASK_MANAGER_ROOT}
 
 ENV TASK_FILE_RELPATH etc/tasks/stubs.yml
 
