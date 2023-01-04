@@ -1,7 +1,7 @@
-sync-iam-rucio:
-    description: "Sync IAM users with a Rucio server"
+sync-iam-rucio-dev:
+    description: "Sync Indigo IAM users with a Rucio server"
     module_name: "tasks.sync.iam"
-    class_name: "SyncIAMRucio"
+    class_name: "SyncIndigoIAMRucio"
     enabled: true
     args:
     kwargs:
@@ -14,5 +14,11 @@ sync-iam-rucio:
         - escape/ska/admins
       skip_accounts:
         - root
+        - skao-rucio-service-1
       rse_quota: 1000000000000
       dry_run: False
+      output:
+        databases:
+          - type: es
+            uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+            index: rucio-task-manager.skao-dev.tasks.sync.iam-to-rucio

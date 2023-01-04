@@ -1,15 +1,19 @@
+from datetime import datetime
 import json
 import os
 import requests
+import uuid
 
+from elasticsearch import Elasticsearch
 from rucio.client.client import Client
-from rucio.common.exception import AccountNotFound, Duplicate, RucioException
+from rucio.common.exception import AccountNotFound, Duplicate, RucioException, InvalidObject
+from rucio.common.schema import validate_schema
 
 from tasks.task import Task
 
 
-class SyncIAMRucio(Task):
-    """ Sync users of an IAM instance to Rucio. """
+class SyncIndigoIAMRucio(Task):
+    """ Sync users of an Indigo IAM instance to Rucio. """
 
     def __init__(self, logger):
         super().__init__(logger)
@@ -20,7 +24,10 @@ class SyncIAMRucio(Task):
         self.rucio_user_iam_groups = None
         self.rse_quota = None
         self.skip_accounts = None
-        self.dry_run = True
+        self.dry_run = None
+        self.outputDatabases = None
+
+        self.events = []    # store events to output
 
     def get_list_of_users_from_IAM(self, token):
         """ Queries the IAM client for users. """
@@ -45,6 +52,20 @@ class SyncIAMRucio(Task):
             else:
                 break
         return users
+
+    def _add_event(self, event_type, account, account_type=None, reason=None, account_attribute=None,
+                   account_limit=None, identity=None, auth_type=None):
+        self.events.append({
+            "created_at": datetime.now().isoformat(),
+            "type": event_type,
+            "account": account,
+            "account_type": account_type,
+            "reason": reason,
+            "account_attribute": account_attribute,
+            "account_limit": account_limit,
+            "identity": identity,
+            "auth_type": auth_type
+        })
 
     def _get_access_token(self):
         """ Authenticates with an iam client via a client_credentials grant and returns an access token. """
@@ -89,7 +110,7 @@ class SyncIAMRucio(Task):
         # Get accounts for both IAM and Rucio.
         users_iam = self._parse_iam_users(users)
 
-        rucio = Client()
+        rucio = Client(logger=self.logger)
         users_rucio = list(rucio.list_accounts())
 
         # Try find a Rucio account with a matching username. Add an OIDC identity if found.
@@ -109,6 +130,7 @@ class SyncIAMRucio(Task):
                     if not self.dry_run:
                         rucio.add_identity(account=account['account'], identity=user_identity, authtype='OIDC',
                                            default=True, email=iam_user['email'])
+                    self._add_event("add_identity", account['account'], identity=user_identity, auth_type='oidc')
                 else:
                     self.logger.info('({}/{}) Skipping adding OIDC identity for user {} [exists]'.format(
                         idx + 1, len(users_rucio), account['account']))
@@ -117,11 +139,14 @@ class SyncIAMRucio(Task):
                     idx + 1, len(users_rucio), account['account']))
 
     def sync_accounts(self, users):
+
+        events = []
+
         # Get accounts for both IAM and Rucio.
         #
         users_iam = self._parse_iam_users(users)
 
-        rucio = Client()
+        rucio = Client(logger=self.logger)
         users_rucio = list(rucio.list_accounts())
 
         # First, compare the list of IAM users with existing Rucio accounts and add/delete accordingly.
@@ -135,7 +160,7 @@ class SyncIAMRucio(Task):
         # Accounts are added as either USER or SERVICE types depending on group membership (rucio_user_iam_groups and
         # rucio_admin_iam_groups respectively).
         #
-        self.logger.info("Adding/removing/reactivating accounts...")
+        self.logger.info("Adding/deleting/reactivating accounts...")
 
         # The following is the not intersection (XOR) of the two user lists from IAM and Rucio.
         accounts_not_intersect = set([entry['account'] for entry in users_rucio]) ^ \
@@ -151,6 +176,7 @@ class SyncIAMRucio(Task):
                 if not self.dry_run:
                     try:
                         rucio.delete_account(user['account'])
+                        self._add_event("delete_account", user['account'], reason="not in IAM")
                     except AccountNotFound:
                         pass
             else:                                                           # user in IAM but not in Rucio (or disabled)
@@ -160,6 +186,7 @@ class SyncIAMRucio(Task):
                 if not user['active']:
                     self.logger.info('({}/{}) Skipped account creation for user {} [not active]'.format(
                         idx+1, len(accounts_not_intersect), user['username']))
+                    self._add_event("skipped_account", user['username'], reason="not active")
                     continue
 
                 # Skip user if account name violates Rucio database/schema restrictions.
@@ -167,11 +194,21 @@ class SyncIAMRucio(Task):
                 if len(user['username']) > 25:
                     self.logger.info('({}/{}) Skipped account creation for user {} [len(account) > 25]'.format(
                         idx+1, len(accounts_not_intersect), user['username']))
+                    self._add_event("skipped_account", user['username'], reason="len(account) > 25")
                     continue
-                # a) must not contain @
+                # b) must not contain @
                 if '@' in user['username']:
                     self.logger.info('({}/{}) Skipped account creation for user {} [contains @]'.format(
                         idx + 1, len(accounts_not_intersect), user['username']))
+                    self._add_event("skipped_account", user['username'], reason="contains @")
+                    continue
+                # c) account name must conform to valid schema
+                try:
+                    validate_schema('account', user['username'])
+                except InvalidObject:
+                    self.logger.info('({}/{}) Skipped account creation for user {} [invalid schema]'.format(
+                        idx + 1, len(accounts_not_intersect), user['username']))
+                    self._add_event("skipped_account", user['username'], reason="invalid schema")
                     continue
 
                 try:  # Check if user account already exists in Rucio and is disabled...
@@ -182,29 +219,37 @@ class SyncIAMRucio(Task):
                         if account_status == 'ACTIVE':
                             self.logger.info('({}/{}) Skipped account for user {} [already exists & active]'.format(
                                 idx+1, len(accounts_not_intersect), user['username']))
+                            self._add_event("skipped_account", user['username'], reason="already exists & active")
                         elif account_status == 'DELETED':
                             self.logger.info('({}/{}) Setting account from DELETED to ACTIVE for user {} '.format(
                                 idx + 1, len(accounts_not_intersect), user['username']))
                             rucio.update_account(user['username'], 'status', 'ACTIVE')
+                            self._add_event("reactivated_account", user['username'])
                     else:
                         self.logger.info('({}/{}) Skipped account reactivation for existing user {} [not a member of '
                                          'any required groups]'.format(
                             idx + 1, len(accounts_not_intersect), user['username']))
+                        self._add_event(
+                            "skipped_account", user['username'], reason="not a member of any required groups")
                 except AccountNotFound:  # ...if not, add an account
                     if set(user['groups']).intersection(self.rucio_admin_iam_groups):        # verified as admin
                         if not self.dry_run:
                             self.logger.info('({}/{}) Creating service account for {}'.format(
                                 idx + 1, len(accounts_not_intersect), user['username']))
                             rucio.add_account(user['username'], type_="SERVICE", email=user['email'])
+                            self._add_event("add_account", user['username'], account_type="service")
                     elif set(user['groups']).intersection(self.rucio_user_iam_groups):       # verified as user
                         self.logger.info('({}/{}) Creating user account for {}'.format(
                             idx + 1, len(accounts_not_intersect), user['username']))
                         if not self.dry_run:
                             rucio.add_account(user['username'], type_="USER", email=user['email'])
+                            self._add_event("add_account", user['username'], account_type="user")
                     else:
-                        self.logger.info('({}/{}) Skipped account creation for user {} [not a member of required '
+                        self.logger.info('({}/{}) Skipped account creation for user {} [not a member of any required '
                                          'groups]'.format(
                                             idx + 1, len(accounts_not_intersect), user['username']))
+                        self._add_event(
+                            "skipped_account", user['username'], reason="not a member of any required groups")
 
         users_rucio = list(rucio.list_accounts())   # refresh
 
@@ -240,12 +285,15 @@ class SyncIAMRucio(Task):
                     if account_type != 'SERVICE':
                         self.logger.debug(" -> Updating account_type to SERVICE")
                         rucio.update_account(account['account'], 'account_type', 'SERVICE')
+                        self._add_event("update_account", account['account'], account_type="service")
                 elif set(iam_user['groups']).intersection(self.rucio_user_iam_groups):  # verified as user
                     if account_type != 'USER':
                         self.logger.debug(" -> Updating account_type to USER")
                         rucio.update_account(account['account'], 'account_type', 'USER')
+                        self._add_event("update_account", account['account'], account_type="user")
                 else:                                                                   # not a member of any groups
                     rucio.delete_account(account['account'])
+                    self._add_event("delete_account", account['account'], reason="not a member of any groups")
 
                 # sync attributes etc. for a user belonging to a valid user group
                 if set(iam_user['groups']).intersection(self.rucio_user_iam_groups):    # verified as user
@@ -255,10 +303,14 @@ class SyncIAMRucio(Task):
                         if not exists[0]['value']:
                             self.logger.debug(" -> Removing incorrect sign-gcs attribute")
                             rucio.delete_account_attribute(account['account'], 'sign-gcs')
+                            self._add_event(
+                                "delete_account_attribute", account['account'], reason="not a member of user group",
+                                account_attribute='sign-gcs')
                             exists = False
                     if not exists:
                         self.logger.debug(" -> Adding sign-gcs account attribute")
                         rucio.add_account_attribute(account['account'], 'sign-gcs', 'True')
+                        self._add_event("add_account_attribute", account['account'], account_attribute='sign-gcs')
 
                     # assign fixed quota for all RSEs to account
                     for rse in rucio.list_rses():
@@ -271,12 +323,16 @@ class SyncIAMRucio(Task):
                         self.logger.debug(" -> Adding quota {} for account {} at rse {}".format(
                             self.rse_quota, account['account'], rse['rse']))
                         rucio.set_local_account_limit(account['account'], rse['rse'], self.rse_quota)
+                        self._add_event("set_local_account_limit", account['account'], account_limit=self.rse_quota)
                 else:                                                                   # not verified as a user
                     exists = [entry for entry in attributes if entry['key'] == 'sign-gcs']
                     if exists:
                         self.logger.debug(" -> Deleting sign-gcs account attribute")
                         try:
                             rucio.delete_account_attribute(account['account'], 'sign-gcs')
+                            self._add_event(
+                                "delete_account_attribute", account['account'], reason="not member of user group",
+                                account_attribute='sign-gcs')
                         except AccountNotFound:
                             pass
 
@@ -288,16 +344,23 @@ class SyncIAMRucio(Task):
                         if not exists[0]['value']:
                             self.logger.debug(" -> Removing incorrect admin attribute")
                             rucio.delete_account_attribute(account['account'], 'admin')
+                            self._add_event(
+                                "delete_account_attribute", account['account'], reason="not a member of admin group",
+                                account_attribute='admin')
                             exists = False
                     if not exists:
                         self.logger.debug(" -> Adding admin account attribute")
                         rucio.add_account_attribute(account['account'], 'admin', 'True')
+                        self._add_event("add_account_attribute", account['account'], account_attribute='admin')
                 else:                                                                   # not verified as an admin
                     exists = [entry for entry in attributes if entry['key'] == 'admin']
                     if exists:
                         self.logger.debug(" -> Deleting admin account attribute")
                         try:
                             rucio.delete_account_attribute(account['account'], 'admin')
+                            self._add_event(
+                                "delete_account_attribute", account['account'], reason="not member of admin group",
+                                account_attribute='admin')
                         except AccountNotFound:
                             pass
 
@@ -305,8 +368,6 @@ class SyncIAMRucio(Task):
         super().run()
         self.tic()
         try:
-            # Assign variables from tests.stubs.yml kwargs.
-            #
             self.iam_server_base_url = kwargs['iam_server_base_url']
             self.admin_client_id = kwargs['client_id']
             self.admin_client_secret = kwargs['client_secret']
@@ -315,6 +376,7 @@ class SyncIAMRucio(Task):
             self.rse_quota = kwargs['rse_quota']
             self.skip_accounts = kwargs['skip_accounts']
             self.dry_run = kwargs['dry_run']
+            self.outputDatabases = kwargs['output']['databases']
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for task.")
             self.logger.critical(repr(e))
@@ -333,6 +395,16 @@ class SyncIAMRucio(Task):
         self.add_oidc(iam_users)
 
         self.logger.info("IAM -> Rucio synchronisation completed successfully.")
+
+        # Push task output to databases.
+        #
+        if self.outputDatabases is not None:
+            for database in self.outputDatabases:
+                if database["type"] == "es":
+                    self.logger.info("Sending output to ES database...")
+                    es = Elasticsearch([database['uri']])
+                    for event in self.events:
+                        es.index(index=database["index"], id=str(uuid.uuid4()), body=event)
 
         self.toc()
         self.logger.info("Finished in {}s".format(

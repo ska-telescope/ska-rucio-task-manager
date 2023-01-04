@@ -2,9 +2,10 @@ from datetime import datetime
 import os
 import time
 
-from common.es.rucio import Rucio as ESRucio
+from elasticsearch import Elasticsearch
+from rucio.client.uploadclient import Client, UploadClient
+
 from common.rucio.helpers import createCollection
-from common.rucio.wrappers import RucioWrappersAPI
 from tasks.task import Task
 from utility import bcolors, generateRandomFile
 
@@ -14,76 +15,96 @@ class TestUpload(Task):
 
     def __init__(self, logger):
         super().__init__(logger)
+        self.nFiles = None
+        self.rses = None
+        self.scope = None
+        self.lifetime = None
+        self.sizes = None
+        self.protocols = None
+        self.outputDatabases = None
+        self.taskName = None
+        self.namingPrefix = None
 
     def run(self, args, kwargs):
         super().run()
         self.tic()
         try:
-            nFiles = kwargs["n_files"]
-            rses = kwargs["rses"]
-            scope = kwargs["scope"]
-            lifetime = kwargs["lifetime"]
-            sizes = kwargs["sizes"]
-            protocols = kwargs["protocols"]
-            databases = kwargs["databases"]
-            taskName = kwargs["task_name"]
-            namingPrefix = kwargs.get("naming_prefix", "")
+            self.nFiles = kwargs["n_files"]
+            self.rses = kwargs["rses"]
+            self.scope = kwargs["scope"]
+            self.lifetime = kwargs["lifetime"]
+            self.sizes = kwargs["sizes"]
+            self.protocols = kwargs["protocols"]
+            self.outputDatabases = kwargs["output"]["databases"]
+            self.taskName = kwargs["task_name"]
+            self.namingPrefix = kwargs.get("naming_prefix", "")
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for task.")
             self.logger.critical(repr(e))
             return False
 
-        # Instantiate RucioWrappers class to allow access to static methods.
-        #
-        rucio = RucioWrappersAPI()
-
         # Create a dataset to house the data, named with today's date
         # and scope <scope>.
         #
-        datasetDID = createCollection(self.logger.name, scope)
+        datasetDID = createCollection(self.logger.name, self.scope)
 
         # Iteratively upload a file of size from <sizes> to each
         # RSE, attach to the dataset, add replication rules to the
         # other listed RSEs.
         #
-        for rseDst in rses:
+        entries = []
+        for rseDst in self.rses:
             self.logger.info(
                 bcolors.OKBLUE + "RSE (dst): {}".format(rseDst) + bcolors.ENDC
             )
-            for protocol in protocols:
-                for size in sizes:
+            for protocol in self.protocols:
+                for size in self.sizes:
                     self.logger.debug("File size: {} bytes".format(size))
-                    for idx in range(nFiles):
+                    for idx in range(self.nFiles):
                         # Generate random file of size <size>
-                        f = generateRandomFile(size, prefix=namingPrefix)
-                        fileDID = "{}:{}".format(scope, os.path.basename(f.name))
+                        f = generateRandomFile(size, prefix=self.namingPrefix)
+                        fileDID = "{}:{}".format(self.scope, os.path.basename(f.name))
 
                         # Upload to <rseDst>
                         self.logger.debug(
                             "Uploading file {} of {} with protocol {}".format(
-                                idx + 1, nFiles, protocol
+                                idx + 1, self.nFiles, protocol
                             )
                         )
 
+                        now = datetime.now()
                         entry = {
-                            "task_name": taskName,
+                            "task_name": self.taskName,
+                            "scope": self.scope,
+                            "name": os.path.basename(f.name),
                             "file_size": size,
                             "type": "file",
                             "n_files": 1,
+                            "to_rse": rseDst,
+                            "protocol": protocol,
+                            "attempted_at": now.isoformat(),
                             "is_upload_submitted": 1,
                         }
                         try:
                             st = time.time()
-                            rucio.upload(
-                                logger=self.logger,
-                                rse=rseDst,
-                                scope=scope,
-                                filePath=f.name,
-                                lifetime=lifetime,
-                                forceScheme=protocol,
-                            )
-                            entry["upload_duration"] = time.time() - st
+
+                            items = [{
+                                "path": f.name,
+                                "rse": rseDst,
+                                "did_scope": self.scope,
+                                "lifetime": self.lifetime,
+                                "register_after_upload": True,
+                                "force_scheme": None,
+                                "transfer_timeout": 60,
+                            }]
+                            client = UploadClient(logger=self.logger)
+                            client.upload(items=items)
+
+                            # Add keys for successful upload.
+                            entry["transfer_duration"] = time.time() - st
+                            entry["transfer_overhead"] = entry["file_size"] / (entry["transfer_duration"]*1000)
                             entry["state"] = "UPLOAD-SUCCESSFUL"
+                            entry["is_upload_successful"] = 1
                             self.logger.debug("Upload complete")
 
                             # Attach to dataset
@@ -91,35 +112,41 @@ class TestUpload(Task):
                                 "Attaching file {} to {}".format(fileDID, datasetDID)
                             )
                             try:
-                                rucio.attach(todid=datasetDID, dids=fileDID)
+                                client = Client(logger=self.logger)
+                                tokens = datasetDID.split(":")
+                                toScope = tokens[0]
+                                toName = tokens[1]
+                                attachment = {"scope": toScope, "name": toName, "dids": []}
+                                for did in fileDID.split(" "):
+                                    tokens = fileDID.split(":")
+                                    scope = tokens[0]
+                                    name = tokens[1]
+                                    attachment["dids"].append({"scope": scope, "name": name})
+                                client.attach_dids_to_dids(attachments=[attachment])
                             except Exception as e:
                                 self.logger.warning(repr(e))
                             self.logger.debug("Attached file to dataset")
                         except Exception as e:
                             self.logger.warning("Upload failed: {}".format(e))
-                            now = datetime.now()
-                            entry["created_at"] = now.isoformat() 
-                            entry["scope"] = scope
-                            entry["name"] = os.path.basename(f.name)
-                            entry["from_rse"] = None
-                            entry["to_rse"] = rseDst
+
+                            # Add keys for failed upload.
                             entry["error"] = repr(e.__class__.__name__).strip("'")
                             entry["error_details"] = repr(e).strip("'")
-                            entry["protocol"] = protocol
                             entry["state"] = "UPLOAD-FAILED"
+                            entry["is_upload_failed"] = 1
                         os.remove(f.name)
 
-                        # Push corresponding rules to database
-                        if databases is not None:
-                            for database in databases:
-                                if database["type"] == "es":
-                                    self.logger.debug(
-                                        "Injecting rules into ES database...")
-                                    es = ESRucio(database["uri"], self.logger)
-                                    es.pushRulesForDID(
-                                        fileDID, index=database["index"],
-                                        baseEntry=entry
-                                    )
+                        entries.append(entry)
+
+        # Push task output to databases.
+        #
+        if self.outputDatabases is not None:
+            for database in self.outputDatabases:
+                if database["type"] == "es":
+                    self.logger.info("Sending output to ES database...")
+                    es = Elasticsearch([database['uri']])
+                    for entry in entries:
+                        es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))

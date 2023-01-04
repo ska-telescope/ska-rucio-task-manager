@@ -5,7 +5,11 @@ get-daemon-info-dev:
   enabled: true
   args:
   kwargs:
-    kube_config_path: /etc/cluster-config.yml
+    cluster_host: 192.168.50.228
+    cluster_port: 6443
+    cluster_service_account_token:
+    # see https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#without-kubectl-proxy
+    # and https://kubernetes.io/docs/tasks/run-application/access-api-from-pod/
     daemon_like_names:
       - abacus-account
       - abacus-rse
@@ -21,7 +25,8 @@ get-daemon-info-dev:
       - transmogrifier
       - undertaker
     namespace: rucio-test
-    databases:
-      - type: es
-        uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
-        index: daemons
+    output:
+      databases:
+        - type: es
+          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          index: rucio-task-manager.skao-dev.tasks.probes.daemons

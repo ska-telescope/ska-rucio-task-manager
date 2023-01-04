@@ -1,15 +1,13 @@
 from datetime import datetime
 import logging
 
-from common.rucio.wrappers import RucioWrappersAPI
+from rucio.client.client import Client
 
 
 def createCollection(loggerName, scope, name=None, collectionType="DATASET"):
     """ Create a new collection in scope, <scope>. """
 
     logger = logging.getLogger(loggerName)
-
-    rucio = RucioWrappersAPI()
 
     # If name is not specified, create one according to datestamp.
     #
@@ -25,18 +23,23 @@ def createCollection(loggerName, scope, name=None, collectionType="DATASET"):
     logger.info("Checking to see if DID ({}) already exists...".format(did))
     try:
         # Check to see if DID already exists, and if not, add.
-        dids = rucio.listDIDs(scope=scope)
-        if did not in dids:
+        client = Client(logger=logger)
+
+        found = True if len(list(
+            client.list_dids(scope=scope, filters=[{'name': name}], did_type="all", recursive=False))) > 0 else False
+        if found:
+            logger.debug("DID already exists. Skipping.")
+        else:
             logger.debug("Adding DID {} of type {}".format(did, collectionType))
             try:
-                rucio.addDID(did, collectionType)
+                tokens = did.split(":")
+                scope = tokens[0]
+                name = tokens[1]
+                client.add_did(scope=scope, name=name, did_type=collectionType)
             except Exception as e:
                 logger.critical("Error adding did.")
                 logger.critical(repr(e))
                 return False
-        else:
-            logger.debug("DID already exists. Skipping.")
-
     except Exception as e:
         logger.critical("Error listing collection.")
         logger.critical(repr(e))

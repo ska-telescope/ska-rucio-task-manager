@@ -1,6 +1,7 @@
 import os
 
-from common.rucio.wrappers import RucioWrappersAPI
+from rucio.client.uploadclient import Client
+
 from tasks.task import Task
 from utility import generateRandomFile
 
@@ -17,7 +18,7 @@ class StubHelloWorld(Task):
         try:
             # Assign variables from tests.stubs.yml kwargs.
             #
-            text = kwargs['text']
+            self.text = kwargs['text']
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for task.")
             self.logger.critical(repr(e))
@@ -25,7 +26,7 @@ class StubHelloWorld(Task):
 
         # Your code here.
         # START ---------------
-        self.logger.info(text)
+        self.logger.info(self.text)
         # END ---------------
 
         self.toc()
@@ -51,9 +52,9 @@ class StubRucioAPI(Task):
 
         # Your code here.
         # START ---------------
-        rucio = RucioWrappersAPI()
-        self.logger.info(rucio.ping())
-        self.logger.info(rucio.whoAmI())
+        client = Client()
+        self.logger.info("ping: {}".format(client.ping()))
+        self.logger.info("whoami: {}".format(client.whoami()))
 
         # END ---------------
 
