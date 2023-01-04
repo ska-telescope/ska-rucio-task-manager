@@ -57,7 +57,7 @@ then
   then
     echo "proceeding with oidc authentication via passed client values..."
     # initialise oidc-agent
-    # n.b. this assumes that the configuration has a refresh token attached to it with infinite lifetime (!)
+    # n.b. this assumes that the configuration has a refresh token attached to it with infinite lifetime
     eval "$(oidc-agent-service use)"
     mkdir ~/.oidc-agent
     # copy across the auth client configuration
@@ -68,9 +68,9 @@ then
     export client_name=$(oidc-gen --pw-env=OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD -p rucio-auth | jq -r .name)
     oidc-token --aud "rucio https://wlcg.cern.ch/jwt/v1/any" $client_name > "/tmp/tmp_auth_token_for_account_$RUCIO_CFG_ACCOUNT"
   elif [ -v OIDC_ACCESS_TOKEN ] && [ -v RUCIO_CFG_ACCOUNT ] # if access token is being passed in directly
-    echo "$OIDC_ACCESS_TOKEN" > "/tmp/tmp_auth_token_for_account_$RUCIO_CFG_ACCOUNT"
   then
     echo "proceeding with oidc authentication using an access token..."
+    echo "$OIDC_ACCESS_TOKEN" > "/tmp/tmp_auth_token_for_account_$RUCIO_CFG_ACCOUNT"
   else
     echo "requested oidc auth but one or more of \$OIDC_AGENT_AUTH_CLIENT_CFG_VALUE, \$OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD, \$RUCIO_CFG_ACCOUNT or \$OIDC_ACCESS_TOKEN are not set"
     exit
@@ -93,4 +93,6 @@ then
   export TASK_FILE_PATH=/tmp/task.yaml.j2
 fi
 
-python3 src/run.py -v -t "$TASK_FILE_PATH"
+export PYTHONIOENCODING=utf8
+
+python3 src/run.py -t "$TASK_FILE_PATH"

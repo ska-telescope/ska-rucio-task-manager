@@ -1,26 +1,52 @@
 reports-dev:
-  description: "Send daily report"
-  module_name: "tasks.reports.daily"
-  class_name: "ReportDaily"
+  description: "Send daily report to slack"
+  module_name: "tasks.reports.events"
+  class_name: "ReportLast24hRucioEventsToSlack"
   enabled: true
   args:
   kwargs:
-    database:
-      type: es
+    es:
       uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
-      index: "custom"
+      index: "hermes2"
+      scroll: '10m'
+      scroll_size: 1000
       search_range_lte: now
       search_range_gte: now-24h
-      max_rows: 10000
-    percentage_stuck_warning_threshold: 1
-    report_title: "Daily Report (dev)"
+    grafana:
+      api_key:
+      dashboard_url: https://srcdev.skatelescope.org/rucio-dev/monit/d/4rmQfGYMz/rucio-events
+      render_url: https://srcdev.skatelescope.org/rucio-dev/monit/render/d-solo/4rmQfGYMz/rucio-events
+      panels:
+        transfer_matrix:
+          enable: true
+          id: 1888
+          width: 1250
+          height: 250
+    jira:
+      base_url: https://jira.skatelescope.org/secure/CreateIssueDetails!init.jspa
+      project_id: 15302
+      issue_type: 10500
+    report_title: "Last 24h Report (dev)"
     rses:
-      - MANCHESTER
-      - LANCASTER
-      - IDIA
-      - DESY_DCACHE
-      - AARNET_PER
-    using_task_name: "test-upload-replication-dev"
-    webhooks:
-      - type: slack
-        url: 
+      - SPSRC_STORM
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
+    slack:
+      bot_token:
+      channel: '#skao-datalake-robot'
+    success_ratio_thresholds:
+      base:
+        icon: ":red_circle:"
+      lo:
+        value: 50
+        icon: ":large_orange_circle:"
+      mid:
+        value: 66
+        icon: ":large_orange_circle:"
+      hi:
+        value: 95
+        icon: ":large_green_circle:"

@@ -1,10 +1,11 @@
-import datetime
+from datetime import datetime
 import dateparser
 import json
 import requests
 import uuid
 
-from common.es.wrappers import Wrappers as ESWrappers
+from elasticsearch import Elasticsearch
+
 from tasks.task import Task
 
 
@@ -13,20 +14,22 @@ class ProbesServiceHeartbeats(Task):
 
     def __init__(self, logger):
         super().__init__(logger)
+        self.services = None
+        self.outputDatabases = None
 
     def run(self, args, kwargs):
         super().run()
         self.tic()
 
         try:
-            services = kwargs["services"]
-            databases = kwargs["databases"]
+            self.services = kwargs["services"]
+            self.outputDatabases = kwargs["output"]["databases"]
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for task.")
             self.logger.critical(repr(e))
             return False
 
-        for svc in services:
+        for svc in self.services:
             response = requests.get(svc['endpoint'], verify=False)
             if response.status_code == svc['expected_status_code']:
                 if svc['expected_content']:
@@ -47,18 +50,19 @@ class ProbesServiceHeartbeats(Task):
                     svc['expected_status_code'], response.status_code
                 )
 
-        # Push corresponding logs to database
-        if databases is not None:
-            for database in databases:
+        # Push task output to databases.
+        #
+        if self.outputDatabases is not None:
+            for database in self.outputDatabases:
                 if database["type"] == "es":
-                    self.logger.debug("Injecting information into ES database...")
-                    es = ESWrappers(database["uri"], self.logger)
-                    for svc in services:
-                        es._index(
+                    self.logger.info("Sending output to ES database...")
+                    es = Elasticsearch([database['uri']])
+                    for svc in self.services:
+                        es.index(
                             index=database["index"],
-                            documentID=svc['name'],
+                            id=str(uuid.uuid4()),
                             body={
-                                '@timestamp': int(datetime.datetime.now().strftime("%s"))*1000,
+                                '@timestamp': datetime.now().isoformat(),
                                 'service_name': svc['name'],
                                 'service_endpoint': svc['endpoint'],
                                 'is_alive': svc['is_alive'],

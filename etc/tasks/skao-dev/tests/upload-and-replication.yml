@@ -1,8 +1,8 @@
-test-upload-tokens-dev:
+test-upload-dev:
   description: "Test uploading via different protocols to RSEs."
   module_name: "tasks.tests.upload"
   class_name: "TestUpload"
-  enabled: true
+  enabled: false
   args:
   kwargs:
     n_files: 1
@@ -12,21 +12,25 @@ test-upload-tokens-dev:
     protocols:
       - https
     rses:
-      - CNAF
-      - STFC_STORM
-      - LANCASTER
+      - SPSRC_STORM
+      - JPSRC_STORM
       - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
     scope: testing
-    databases:
-      - type: es
-        uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
-        index: custom
+    output:
+      databases:
+        - type: es
+          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          index: rucio-task-manager.skao-dev.tasks.tests.upload
 
-test-upload-replication-tokens-dev:
+test-upload-replication-dev:
   description: "Test upload and replication between RSEs."
   module_name: "tasks.tests.upload_replication"
   class_name: "TestUploadReplication"
-  enabled: true
+  enabled: false
   args:
   kwargs:
     activity: "Functional Test"
@@ -35,13 +39,17 @@ test-upload-replication-tokens-dev:
       - 100000 # bytes
     lifetime: 3600 # seconds
     rses:
-      - CNAF
-      - STFC_STORM
-      - LANCASTER
+      - SPSRC_STORM
+      - JPSRC_STORM
       - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
     scope: testing
-    databases:
-      - type: es
-        uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
-        index: custom
+    output:
+      databases:
+        - type: es
+          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
 
