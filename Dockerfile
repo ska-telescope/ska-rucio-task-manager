@@ -29,4 +29,6 @@ ENV TASK_FILE_RELPATH etc/tasks/stubs.yml
 
 USER user
 
+ENV DAVIX_DISABLE_SESSION_CACHING true
+
 ENTRYPOINT ["bash", "./etc/docker/docker-entrypoint.sh"]
