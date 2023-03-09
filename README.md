@@ -216,7 +216,7 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
+-e RUCIO_CFG_AUTH_TYPE=oidc \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
@@ -228,7 +228,7 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
+-e RUCIO_CFG_AUTH_TYPE=oidc \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_VALUE="`cat ~/.oidc-agent/<client_name>`" \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD=$OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD \
