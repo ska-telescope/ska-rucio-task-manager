@@ -1,0 +1,23 @@
+test-upload-replication-random-dev:
+  description: "Test upload and replication randomly between RSEs."
+  module_name: "tasks.tests.upload_replication_random"
+  class_name: "TestUploadReplicationRandom"
+  enabled: true
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    size: 100000 # bytes
+    lifetime: 3600 # seconds
+    rses:
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNAF
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication-random
+
