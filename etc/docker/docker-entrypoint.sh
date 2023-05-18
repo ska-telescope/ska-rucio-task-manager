@@ -95,4 +95,4 @@ fi
 
 export PYTHONIOENCODING=utf8
 
-python3 src/run.py -t "$TASK_FILE_PATH"
+python3 src/run.py -vt "$TASK_FILE_PATH"
