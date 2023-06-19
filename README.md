@@ -6,13 +6,13 @@ A modular and extensible framework for performing tasks on a Rucio datalake.
 
 1. Review the [architecture](#architecture) section
 2. Build the image: `make skao`
-3. [Get a datalake access token](#by-passing-in-an-access-token)
+3. [Get a datalake access token](#using-the-rucio-client)
 4. Export the required environment variables for OIDC authentication using an access token: 
    - `RUCIO_CFG_ACCOUNT=<account>`, 
    - `RUCIO_CFG_AUTH_TYPE=oidc`,
    - `RUCIO_TASK_MANAGER_ROOT=/path/to/task/manager/root`,
    - `OIDC_ACCESS_TOKEN=<token>`
-5. [Run it](#using-the-rucio-client)
+5. [Run it](#by-passing-in-an-access-token)
 
 # Architecture
 
