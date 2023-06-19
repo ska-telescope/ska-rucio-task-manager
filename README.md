@@ -6,15 +6,15 @@ A modular and extensible framework for performing tasks on a Rucio datalake.
 
 1. Review the [architecture](#architecture) section
 2. Build the image: `make skao`
-3. [Get a datalake access token](#getting-starting-access-token-rucio-client)
+3. [Get a datalake access token](#oidc-by-passing-in-an-access-token)
 4. Export the required environment variables for OIDC authentication using an access token: 
    - `RUCIO_CFG_ACCOUNT=<account>`, 
    - `RUCIO_CFG_AUTH_TYPE=oidc`,
    - `RUCIO_TASK_MANAGER_ROOT=/path/to/task/manager/root`,
    - `OIDC_ACCESS_TOKEN=<token>`
-5. [Run it](#oidc-by-passing-in-an-access-token)
+5. [Run it](#using-the-rucio-client)
 
-# [Architecture](#architecture)
+# Architecture
 
 Fundamentally, this framework is a task scheduler with Rucio authentication built in. A **task** is defined as any 
 operation or sequence of operations that can be performed on the datalake.
@@ -230,7 +230,7 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 
 ### oidc
 
-#### [By passing in an access token](#oidc-by-passing-in-an-access-token)
+#### By passing in an access token
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
@@ -355,7 +355,7 @@ cronjobs:
 
 ### Getting an access token
 
-#### [Using the Rucio Client](#getting-starting-access-token-rucio-client)
+#### Using the Rucio Client
 
 To develop tasks that can be tested by running against an existing datalake, we must first retrieve a valid access 
 token for the datalake. In this example, we will use OIDC (and assume our datalake instance supports this method of 
