@@ -1,5 +1,7 @@
 # rucio-task-manager
 
+[[_TOC_]]
+
 A modular and extensible framework for performing tasks on a Rucio datalake.
 
 ## Quickstart development (On the SKAO prototype datalake using OIDC)
