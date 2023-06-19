@@ -1,0 +1,16 @@
+test-rucio-upload-timed:
+  description: "Timed Rucio upload"
+  module_name: "tasks.tests.upload_timed"
+  class_name: "UploadTimed"
+  enabled: true
+  args:
+  kwargs:
+    rse: "JPSRC_STORM"
+    size: 100000
+    scope: "testing"
+    lifetime: 3600
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-timed

@@ -55,7 +55,6 @@ class StubRucioAPI(Task):
         client = Client()
         self.logger.info("ping: {}".format(client.ping()))
         self.logger.info("whoami: {}".format(client.whoami()))
-
         # END ---------------
 
         self.toc()

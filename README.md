@@ -365,7 +365,8 @@ This token can be retrieved by running a Rucio client container and authenticati
 `<account>`, with OIDC, e.g. using the SKAO Rucio prototype client:
 
 ```bash
-$ docker run -it --rm -e RUCIO_CFG_ACCOUNT=<account>> -e RUCIO_CFG_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/ska-rucio-client:release-1.29.0
+$ export RUCIO_CFG_ACCOUNT=<account>
+$ docker run -it --rm -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT -e RUCIO_CFG_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/ska-rucio-client:release-1.29.0
 $ rucio whoami
 ```
 
