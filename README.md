@@ -2,73 +2,88 @@
 
 A modular and extensible framework for performing tasks on a Rucio datalake.
 
-# Architecture
+## Quickstart development (On the SKAO prototype datalake using OIDC)
+
+1. Review the [architecture](#architecture) section
+2. Build the image: `make skao`
+3. [Get a datalake access token](#getting-starting-access-token-rucio-client)
+4. Export the required environment variables for OIDC authentication using an access token: 
+   - `RUCIO_CFG_ACCOUNT=<account>`, 
+   - `RUCIO_CFG_AUTH_TYPE=oidc`,
+   - `RUCIO_TASK_MANAGER_ROOT=/path/to/task/manager/root`,
+   - `OIDC_ACCESS_TOKEN=<token>`
+5. [Run it](#oidc-by-passing-in-an-access-token)
+
+# [Architecture](#architecture)
+
+Fundamentally, this framework is a task scheduler with Rucio authentication built in. A **task** is defined as any 
+operation or sequence of operations that can be performed on the datalake.
+
+Within this framework, a task comprises two parts: _logic_ and _definition_. Task logic is code and should be sufficiently 
+abstracted & parameterised to allow for easy re-use and chaining of tasks.
+
+The source for task logic is kept in `src`:
 
 ```
-  ├── Dockerfile
-  ├── etc
-  │   ├── helm
-  │   ├── docker
-  │   └── tasks
-  │      └── <deployment>
-  │         └── probes
-  │         └── reports
-  │         └── sync
-  │         └── tests
-  ├── LICENSE
-  ├── Makefile
-  ├── README.md
-  ├── requirements.txt
   └── src
-  │   |── common
-  │   └── tasks
-  │      └── probes
-  │      └── reports
-  │      └── sync
-  │      └── tests
-  └── TODO.md
-
+      |── common
+      │  └── rucio
+      └── tasks
+         └── probes
+         └── reports
+         └── sync
+         └── tests
 ```
 
-Fundamentally, this framework is a glorified task scheduler for Rucio. A "task" is any operation or sequence of 
-operations that can be performed on the datalake.
-
-Within this framework, a task is defined by two parts: the logic and the definition. Task logic should be sufficiently 
-abstracted & parameterised so as to clearly demarcate these two parts, allowing for easy re-use and chaining of tasks.
-
-The source for the task logic is kept in `src/tasks`. The structure of `src/tasks` takes the following 
-format: `<task_type>/<task_name>.yml` where, for consistency, `<task_type>` should be one of:
+where functionality that is expected to be common across modules is stored in `src/common`. The structure of 
+`src/tasks` takes the following format: `<task_type>/<task_name>.yml` where, for consistency, `<task_type>` should be 
+one of:
 
 - probes (cluster health, uptime etc.)
-- reports
+- reports (slack integrations, emails etc.)
 - sync (syncing functionality, e.g. IAM)
 - tests
 
-Other categories may be added as needed.
+But other categories may be added as needed.
 
-Task definitions are written in yaml and stored in `etc/tasks`. Each definition contains fields to specify the task 
-logic module to be used and any necessary corresponding arguments. The structure of `etc/tasks` takes the following 
-format: `<deployment>/<task_type>/<task_name>.yml`.
+Task definitions are written in yaml and can be stored in `etc`:
 
-A Helm chart for deployment to a kubernetes cluster is kept in `etc/helm`.
+```
+  └── etc
+      ├── helm
+      ├── docker
+      └── tasks
+         └── <deployment>
+            └── probes
+            └── reports
+            └── sync
+            └── tests
+```
+
+Each definition contains fields to specify the task logic module to be used and any required corresponding arguments. 
+The structure of `etc/tasks` takes the following format: `<deployment>/<task_type>/<task_name>.yml` where `deployment` 
+is a identifier for the datalake that the task will be deployed to.
+
+A Helm chart for deployment to a kubernetes cluster is kept in `etc/helm`. **For deployments via Helm, task definitions 
+must be specified separately in the `values` file.**
 
 # Usage
 
-This framework is designed to be run in a dockerised environment. It currently supports authentication with the datalake 
-via userpass, x509 and OpenID Connect. Note that with only userpass authentication, some operations e.g. upload/delete 
-on Grid managed storage sites will be restricted.
+This framework is designed to be run in a dockerised environment. 
 
-Images should be built off a preexisting dockerised Rucio client image. This image could be the de facto standard 
+## Building the image
+
+Images should be built off a preexisting dockerised Rucio client image. This image could be the Rucio base 
 provided by the Rucio maintainers (https://github.com/rucio/containers/tree/master/clients), included in the root 
-`Makefile` as target "rucio", or an extended image. Client images can be extended to contain the prerequisite 
-certificate bundles, VOMS setup and Rucio template configs for a specific datalake.
+`Makefile` as target "rucio", or an extended image built off this. Extended client images are used to encapsulate the 
+prerequisite certificate bundles, VOMS setup (if x509) and Rucio template configs for a specific datalake.
 
-Extended images currently exist for the _prototype skao_ datalake. Builds for other datalake instances can be enabled by 
-adding a new `docker build` routine as a new target in the root `Makefile` with the corresponding build arguments for 
-the base client image and tag.
+**Extended images already exist for the prototype skao datalake as the Makefile target `skao`**. Builds for other 
+datalake instances can be enabled by adding a new `docker build` routine as a new target in the root `Makefile` with 
+the corresponding build arguments for the base client image and tag.
 
-When a change is made to either the logic or definition (unless the task manager code is being mounted as a volume 
-inside the container, as shown in the examples below), the image will need to be rebuilt, e.g. for skao images:
+Unless the task manager code is being mounted as a volume inside the container, as shown in the examples below, the 
+image will need to be rebuilt when a change is made to either the logic or definition, e.g. for skao images:
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ make skao
@@ -79,25 +94,25 @@ eng@ubuntu:~/rucio-task-manager$ make skao
 To use the framework, it is first necessary to set a few environment variables. A brief description of each is given 
 below:
 
-- **RUCIO_CFG_AUTH_TYPE**: the authentication type (userpass||x509||oidc)
+- **RUCIO_CFG_ACCOUNT**: the Rucio account under which the tasks are to be performed
+- **RUCIO_CFG_AUTH_TYPE**: the authentication type (userpass || x509 || oidc)
 - **TASK_FILE_PATH**: the relative path from the package root to the task file or url
 
 Depending on whether they are already set in the image's baked-in `rucio.cfg`, the following may need to be set:
 
 - **RUCIO_CFG_RUCIO_HOST**: the Rucio server host
 - **RUCIO_CFG_AUTH_HOST**: the Rucio auth host
-- **RUCIO_CFG_ACCOUNT**: the Rucio account under which the tasks are to be performed
 
 Additionally, there are authentication type dependent variables that must be set.
 
-### Authentication by username/password
+### For authentication by username/password
 
 For "userpass" authentication, the following variables are also required:
 
 - **RUCIO_CFG_USERNAME**: username
 - **RUCIO_CFG_PASSWORD**: the corresponding password for the user
 
-### Authentication by X.509
+### For authentication by X.509
 
 For "x509" authentication, it is possible to supply the necessary credentials via two methods.
 
@@ -114,34 +129,36 @@ Alternatively, the paths to the key/certificate can be held in the following var
 
 but the key/certificate **must be volume mounted to these locations**.
 
-### Authentication by OpenID Connect
+### For authentication by OpenID Connect (OIDC)
 
 For "oidc" authentication, it is possible to supply the necessary credentials via two methods.
 
-The first method assumes that the user has a client configuration generated by the `oidc-agent` tool. This client 
-should have a refresh token attached to it in order that access tokens can be generated when required. This is useful
-if asynchronous cronjobs need to be run, bypassing the requirement to keep retrieving a new access token. 
+#### Using an access token
 
-The encryped oidc-agent client configuration is stored in an environment variable as plaintext:
+The first (and easiest) method assumes that the user already has a valid access token:
+
+- **OIDC_ACCESS_TOKEN**: an encrypted oidc-agent client with refresh token
+
+To get an access token, refer to `Development > Getting started (OIDC) > Getting an access token`.
+
+This method is advised for general development use.
+
+#### Using an oidc-agent configuration
+
+The second method requires that the user has a client configuration generated by the 
+[https://github.com/indigo-dc/oidc-agent](oidc-agent) tool. This client should have a refresh token attached to it in 
+order that access tokens can be generated when required. The encrypted oidc-agent client configuration and password 
+are stored in environment variables as plaintext:
 
 - **OIDC_AGENT_AUTH_CLIENT_CFG_VALUE**: an encrypted oidc-agent client with refresh token
 - **OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD**: the password to decrypt this client
 
-The second method assumes that the user has a valid access token:
-
-- **OIDC_ACCESS_TOKEN**: an encrypted oidc-agent client with refresh token
-
-This token can be retrieved by authenticating with Rucio using the client and taking the resulting token from 
-`/tmp/user/.rucio_user/auth_token_for_account_<account>`. This method is advised for general development use.
-
-Both methods require the Rucio account to be explicitly set:
-
-- **RUCIO_CFG_ACCOUNT**: the Rucio account under which the tasks are to be performed
-
-Depending on whether they are already set in the image's baked-in `rucio.cfg`, the following may need to be set:
+Depending on whether they are already set in the image's baked-in `rucio.cfg`, the following may also need to be set:
 
 - **RUCIO_CFG_OIDC_SCOPE**: list of OIDC scopes
 - **RUCIO_CFG_OIDC_AUDIENCE**: list of OIDC audiences
+
+This method is useful for asynchronous cronjobs where a token needs to be retrieved at run-time.
 
 ## Examples
 
@@ -153,6 +170,7 @@ explicitly supplied, they will be taken from the `rucio.cfg`.
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=userpass \
+-e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
 -e RUCIO_CFG_PASSWORD=$RUCIO_CFG_PASSWORD \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
@@ -160,7 +178,7 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 ```
 
 For development purposes, it is possible to mount the package from the host directly into the container provided you 
-have exported the project's root directory path as **RUCIO_TASK_MANAGER_ROOT**, e.g.:
+have exported the project's root directory path as `RUCIO_TASK_MANAGER_ROOT`, e.g.:
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
@@ -181,11 +199,11 @@ With this, it is not required to rebuild the image everytime it is run.
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=oidc \
+-e RUCIO_CFG_AUTH_TYPE=x509 \
+-e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e RUCIO_CFG_CLIENT_CERT_VALUE="`cat $RUCIO_CFG_CLIENT_CERT`" \
 -e RUCIO_CFG_CLIENT_KEY_VALUE="`cat $RUCIO_CFG_CLIENT_KEY`" \
 -e VOMS=skatelescope.eu \
--e RUCIO_CFG_ACCOUNT=root \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
 --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
@@ -212,7 +230,7 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 
 ### oidc
 
-#### By passing in an access token
+#### [By passing in an access token](#oidc-by-passing-in-an-access-token)
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
@@ -239,11 +257,11 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 
 # Deployment
 
-## Kubernetes
+## On Kubernetes
 
 Deployment in a kubernetes cluster is managed by Helm. 
 
-A rucio-task-manager image must be built, tagged and pushed to a location accessible to the cluster, e.g. for 
+A rucio-task-manager image must first be built, tagged and pushed to a location accessible to the cluster, e.g. for 
 SKAO's gitlab:
 
 ```bash
@@ -252,7 +270,7 @@ eng@ubuntu:~/rucio-task-manager$ docker tag rucio-task-manager:`cat BASE_RUCIO_C
 eng@ubuntu:~/rucio-task-manager$ docker push registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/rucio-task-manager-client:latest
 ```
 
-As is standard procedure for Helm, the values in `etc/helm/values.yaml` can be adjusted accordingly. 
+As per the standard procedure for Helm, the task values in `etc/helm/values.yaml` can be adjusted as required. 
 
 Variables to be directly assigned as environment variables to the container can be specified in the `config` section, 
 e.g.
@@ -263,12 +281,13 @@ config:
   RUCIO_CFG_AUTH_HOST: https://srcdev.skatelescope.org/rucio-dev
 ```
 
-Secrets such as certificates and keys can be created, e.g. 
+Secrets such as certificates and keys that are created on the cluster, e.g. 
 
 ```bash
 $ kubectl create secret generic oidc-agent-auth-client --from-file=cfg=/path/to/file --from-literal=password=<password>
 ```
-then specified in the `secrets` section:
+
+can be specified in the `secrets` section:
 
 ```yaml
 secrets:
@@ -280,7 +299,7 @@ secrets:
     fromSecretKey: password
 ```
 
-to be similarly assigned as environment variables in the container.
+to be assigned as environment variables in the container.
 
 Cronjobs for tasks can be scheduled by adding a new entry to the `cronjobs` section, e.g.
 
@@ -299,7 +318,7 @@ cronjobs:
 Task files can either be specified as a path, `task_file_path`, or inline as yaml under `task_file_yaml`. If both are 
 specified, then the inline yaml takes preference.
 
-It is possible to substitute secrets into tasks using j2 syntax ( `{{ VARIABLE }}`), e.g.
+It is possible to substitute secrets into tasks using j2 templating syntax (`{{ variable }}`), e.g.
 
 ```bash
 $ kubectl create secret generic task-stubs --from-literal=text=HelloWorld
@@ -336,7 +355,7 @@ cronjobs:
 
 ### Getting an access token
 
-#### Using the Rucio Client
+#### [Using the Rucio Client](#getting-starting-access-token-rucio-client)
 
 To develop tasks that can be tested by running against an existing datalake, we must first retrieve a valid access 
 token for the datalake. In this example, we will use OIDC (and assume our datalake instance supports this method of 
@@ -359,8 +378,7 @@ eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJ3bGNnLnZlciI6IjEuMCIsInN1Y...
 ```
 
 Copy this token and export it to an environment variable, `OIDC_ACCESS_TOKEN`, in whatever shell you intend to run the 
-manager in. It's advisable to keep the Rucio client container open as you will need it to generate new tokens when one 
-expires.
+manager in. 
 
 #### Using cURL
 
@@ -391,31 +409,19 @@ $ curl -D - https://srcdev.skatelescope.org/rucio-dev/auth/oidc_redirect?<code> 
 eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJ3bGNnLnZlciI6IjEuMCIsInN1Y...
 ```
 
-### Using this access token to run tasks in a rucio-task-manager container
-
-In a new shell, run:
-
-```bash
-eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=oidc \
--e RUCIO_CFG_ACCOUNT=<account> \
--e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
--e TASK_FILE_PATH=etc/tasks/stubs.yml \
--v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
---name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
-```
-
-to run the task at `etc/tasks/stubs.yml`. Note that in this example, the task manager package is volume mounted in to 
-the container so any changes you have locally will be reflected at runtime.
-
 ## Creating a new task
 
 The procedure for creating a new tests is as follows:
 
 1. Take a copy of the `TestStubHelloWorld` class stub in `src/tasks/stubs.py` and rename both the file and class name.
-2. Amend the entrypoint `run()` function as desired. Functionality for communicating with Rucio is done by using the client functions directly (see the Rucio API for details). Example usage can be found in the `StubRucioAPI` class stub in `src/tasks/stubs.py`.
-3. Create a new task definition file e.g. `etc/tasks/test.yml` copying the format of the `test-hello-world-stub` definition in `etc/tasks/stubs.yml`. A task has the following mandatory fields:
-   - `module_name` (starting from and including the `tasks.` prefix) and `class_name`, set accordingly to match the modules/classes redefined in step 1,
+2. Amend the entrypoint `run()` function as desired. Functionality for communicating with Rucio is done by using the 
+   client functions directly (see the 
+   [Rucio Client API](https://rucio.github.io/documentation/client_api/accountclient) for details). Example usage can 
+   be found in the `StubRucioAPI` class stub in `src/tasks/stubs.py`.
+3. Create a new task definition file e.g. `etc/tasks/test.yml` copying the format of the `test-hello-world-stub` 
+   definition in `etc/tasks/stubs.yml`. A task has the following mandatory fields:
+   - `module_name` (starting from and including the `tasks.` prefix) and `class_name`, set accordingly to match the 
+     modules/classes redefined in step 1,
    - `args` and `kwargs` keys corresponding to the parameters injected into the task's entry point `run()`,
    - `description`, and
    - `enabled`.
