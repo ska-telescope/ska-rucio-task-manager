@@ -428,3 +428,14 @@ The procedure for creating a new tests is as follows:
    - `args` and `kwargs` keys corresponding to the parameters injected into the task's entry point `run()`,
    - `description`, and
    - `enabled`.
+4. To run the new test locally, build and run the container image as described in more detail above:
+    ```
+    $ make skao
+    $ docker run --rm -it \
+      -e RUCIO_CFG_AUTH_TYPE=oidc \
+      -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+      -e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
+      -e TASK_FILE_PATH=etc/tasks/<your_test_file>.yml \
+      -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
+      --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
+    ```
