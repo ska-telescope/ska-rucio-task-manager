@@ -31,7 +31,7 @@ eng@ubuntu:~/SKAO$ git clone https://gitlab.com/ska-telescope/src/ska-rucio-task
 
 ## Running the stub task
 
-First, set up your environment by cd'ing into the tutorial directory and sourcing the `setup_enviroment` script:
+First, set up your environment by cd'ing into the tutorial/scripts directory and sourcing the `setup_environment` script from within this directory (required as relative paths are used):
 
 ```bash
 eng@ubuntu:~$ cd SKAO/ska-rucio-task-manager/tutorial/
