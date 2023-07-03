@@ -1,16 +1,20 @@
 #!/bin/bash
 
 # Setup envvars
-export RUCIO_TASK_MANAGER_ROOT=`python -c "import os,sys; print(os.path.realpath(sys.argv[1]))" ../../`
-read -e -p "Path to Rucio task manager root: " -i "$RUCIO_TASK_MANAGER_ROOT" RUCIO_TASK_MANAGER_ROOT
+RUCIO_TASK_MANAGER_ROOT=`python -c "import os,sys; print(os.path.realpath(sys.argv[1]))" ../../`
+read -e -p "Path to Rucio task manager root (default: $RUCIO_TASK_MANAGER_ROOT): " input
+RUCIO_TASK_MANAGER_ROOT=${input:-$RUCIO_TASK_MANAGER_ROOT} 
+export RUCIO_TASK_MANAGER_ROOT=$RUCIO_TASK_MANAGER_ROOT
 
-echo "RUCIO_TASK_MANAGER_ROOT set to \"$RUCIO_TASK_MANAGER_ROOT"
+echo "RUCIO_TASK_MANAGER_ROOT set to \"$RUCIO_TASK_MANAGER_ROOT\""
 
 export RUCIO_CFG_AUTH_TYPE=oidc
 
-read -e -p "Rucio account name: " -i "$RUCIO_CFG_ACCOUNT" RUCIO_CFG_ACCOUNT
+read -e -p "Rucio account name (default: $RUCIO_CFG_ACCOUNT): " input
+RUCIO_CFG_ACCOUNT=${input:-$RUCIO_CFG_ACCOUNT}
+export RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT
 
-echo "RUCIO_CFG_ACCOUNT set to \"$RUCIO_CFG_ACCOUNT"
+echo "RUCIO_CFG_ACCOUNT set to \"$RUCIO_CFG_ACCOUNT\""
 
 # Get a token
 docker run -itd --name ska-rucio-client --rm -e PYTHONWARNINGS="ignore:Unverified HTTPS request" -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT -e RUCIO_CFG_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/ska-rucio-client:release-1.29.0
