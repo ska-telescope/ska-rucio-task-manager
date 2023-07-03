@@ -8,18 +8,17 @@ This tutorial will guide you through creating a new test with the rucio-task-man
 
 You will need the following software installed:
 
-- Git
-- Docker
-- Python3
+- git
+- docker
+- python3
 - vim (or any other text editor)
 - jq
+- bash
 
 In addition, you will need:
 
 - An ESCAPE IAM account (for datalake auth) with membership to the `escape/ska` group
  - An SKA IAM account (for monitoring auth) with membership to the `monitoring/grafana/editor` group
-
-
 
 ## Getting the package
 
@@ -38,10 +37,10 @@ eng@ubuntu:~$ cd SKAO/ska-rucio-task-manager/tutorial/
 eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ . setup_environment.sh
 ```
 
-Then you can proceed to run the task inside the dockerised task manager environment (the task path is relative to the root directory of ska-rucio-task-manager):
+Then you can proceed to run the task using the shell function `run-task` inside the dockerised task manager environment (the task path is relative to the root directory of ska-rucio-task-manager):
 
 ```bash
-eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ ./run_task.sh etc/tasks/stubs.yml
+eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ run-task etc/tasks/stubs.yml
 ```
 
 ## Making a new test
@@ -188,7 +187,7 @@ class UploadTimed(Task):
 As with the stub test, this new test can be instantiated within the dockerised task manager environment:
 
 ```bash
-eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ ./run_task.sh tutorial/tests/upload-timed.yml
+eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ run-task tutorial/tests/upload-timed.yml
 ```
 
 ### Inspecting the output
