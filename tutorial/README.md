@@ -33,7 +33,7 @@ eng@ubuntu:~/SKAO$ git clone https://gitlab.com/ska-telescope/src/ska-rucio-task
 First, set up your environment by cd'ing into the tutorial/scripts directory and sourcing the `setup_environment` script from within this directory (required as relative paths are used):
 
 ```bash
-eng@ubuntu:~$ cd SKAO/ska-rucio-task-manager/tutorial/
+eng@ubuntu:~$ cd SKAO/ska-rucio-task-manager/tutorial/scripts
 eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ . setup_environment.sh
 ```
 
@@ -139,7 +139,7 @@ class UploadTimed(Task):
         # Your code here.
         # START ---------------
         self.logger.info("Uploading to {}".format(self.rse))
-        f = generateRandomFile(1000)
+        f = generateRandomFile(self.size)
         try:
             items = [{
                 "path": f.name,
@@ -181,6 +181,8 @@ class UploadTimed(Task):
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
 
 ```
+
+Rucio upload client function definitions: https://rucio.github.io/documentation/client_api/uploadclient
 
 ### Running the test
 
@@ -239,6 +241,8 @@ eng@ubuntu:~/SKAO/ska-rucio-task-manager/etc/tasks/skao-dev/tests$ curl -s https
 ```
 
 ## Visualising output in Grafana
+
+Navigate to https://monit.srcdev.skao.int/grafana.
 
 To visualise the output, you need to create a new datasource (admin only) referring to the index that events are being pushed to. For the above test, the datasource configuration (configuration > add datasource) looks something like:
 
