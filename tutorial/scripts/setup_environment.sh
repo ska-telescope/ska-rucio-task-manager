@@ -24,7 +24,7 @@ export OIDC_ACCESS_TOKEN=$BEARER_TOKEN
 (cd $RUCIO_TASK_MANAGER_ROOT; make skao)
 
 # Define a quick entrypoint
-function run-task {
+function run-task () {
   if [ "$#" -ne 1 ]; then
     echo "You must pass the script location (relative to $RUCIO_TASK_MANAGER_ROOT) as an argument to this script."
     return 1
