@@ -43,6 +43,34 @@ Then you can proceed to run the task using the shell function `run-task` inside 
 eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ run-task etc/tasks/stubs.yml
 ```
 
+## Running the upload/upload-replication tasks
+
+Before running this task, you need to enable the tasks in the definition by setting `enabled: true`:
+
+```bash
+vim etc/tasks/skao-dev/tests/upload-and-replication.yml
+```
+
+```yaml
+test-upload-dev:
+  description: "Test uploading via different protocols to RSEs."
+  module_name: "tasks.tests.upload"
+  class_name: "TestUpload"
+  enabled: true
+```
+
+```yaml
+test-upload-replication-dev:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: true
+```
+
+```bash
+eng@ubuntu:~/SKAO/ska-rucio-task-manager$ run-task etc/tasks/skao-dev/tests/upload-and-replication.yml
+```
+
 ## Making a new test
 
 This new test will record how long it takes to upload a file to Rucio, and send this data to elastic.
