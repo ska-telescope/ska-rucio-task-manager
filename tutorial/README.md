@@ -37,6 +37,8 @@ eng@ubuntu:~$ cd SKAO/ska-rucio-task-manager/tutorial/scripts
 eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ . setup_environment.sh
 ```
 
+NB: remember to add yourself to docker group if you encounter the permission issue, just using the command `sudo usermod -aG docker ${USER}; sudo systemctl restart docker`
+
 Then you can proceed to run the task using the shell function `run-task` inside the dockerised task manager environment (the task path is relative to the root directory of ska-rucio-task-manager):
 
 ```bash
