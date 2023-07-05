@@ -6,7 +6,7 @@ reports-dev:
   args:
   kwargs:
     es:
-      uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+      uri: https://monit.srcdev.skao.int/elastic
       index: "hermes2"
       scroll: '10m'
       scroll_size: 1000
@@ -14,8 +14,8 @@ reports-dev:
       search_range_gte: now-24h
     grafana:
       api_key:
-      dashboard_url: https://srcdev.skatelescope.org/rucio-dev/monit/d/4rmQfGYMz/rucio-events
-      render_url: https://srcdev.skatelescope.org/rucio-dev/monit/render/d-solo/4rmQfGYMz/rucio-events
+      dashboard_url: 
+      render_url: 
       panels:
         transfer_matrix:
           enable: true

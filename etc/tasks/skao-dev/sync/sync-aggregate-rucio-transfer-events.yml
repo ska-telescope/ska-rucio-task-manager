@@ -14,7 +14,7 @@ sync-aggregate-rucio-transfer-events-testing-functional:
         max_number_of_concurrent_threads: 100
         wait_per_chunk_ms: 1000
       es:
-        uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+        uri: https://monit.srcdev.skao.int/elastic
         index: "hermes2"
         scroll: '10m'
         scroll_size: 10000
@@ -23,6 +23,6 @@ sync-aggregate-rucio-transfer-events-testing-functional:
       output:
         databases:
           - type: es
-            uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+            uri: https://monit.srcdev.skao.int/elastic
             index: rucio-task-manager.skao-dev.tasks.sync.aggregated-rucio-transfer-events
 

@@ -23,7 +23,7 @@ test-upload-dev:
     output:
       databases:
         - type: es
-          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          uri: https://monit.srcdev.skao.int/elastic
           index: rucio-task-manager.skao-dev.tasks.tests.upload
 
 test-upload-replication-dev:
@@ -50,6 +50,6 @@ test-upload-replication-dev:
     output:
       databases:
         - type: es
-          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          uri: https://monit.srcdev.skao.int/elastic
           index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
 

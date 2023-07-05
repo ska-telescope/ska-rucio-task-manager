@@ -7,7 +7,7 @@ get-service-heartbeats-dev:
   kwargs:
     services:
       - name: rucio
-        endpoint: https://srcdev.skatelescope.org/rucio-dev/ping
+        endpoint: https://rucio.srcdev.skao.int/ping
         expected_status_code: 200
         expected_content:
           version: 1.29.0
@@ -18,5 +18,5 @@ get-service-heartbeats-dev:
     output:
       databases:
         - type: es
-          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          uri: https://monit.srcdev.skao.int/elastic
           index: rucio-task-manager.skao-dev.tasks.probes.service_heartbeats
