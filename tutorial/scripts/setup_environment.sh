@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Setup envvars
-RUCIO_TASK_MANAGER_ROOT=`python -c "import os,sys; print(os.path.realpath(sys.argv[1]))" ../../`
+RUCIO_TASK_MANAGER_ROOT=`python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" ../../`
 read -e -p "Path to Rucio task manager root (default: $RUCIO_TASK_MANAGER_ROOT): " input
 RUCIO_TASK_MANAGER_ROOT=${input:-$RUCIO_TASK_MANAGER_ROOT} 
 export RUCIO_TASK_MANAGER_ROOT=$RUCIO_TASK_MANAGER_ROOT
