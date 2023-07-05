@@ -22,3 +22,10 @@ Obviously if you just want to watch that is fine also.
 # Resources
 
 Presentation: https://docs.google.com/presentation/d/1I8rRuxbUcjQTbvp2wipy7m7nS9Gagy5u2B0HEtsjg-w/edit#slide=id.g2562869c95b_1_149
+
+# Post workshop notes
+
+- Issues around Docker (make sure user is either in correct group or sudo is used anytime a docker command is issued in the setup_environment script)
+- Always `docker pull` the latest version of the client image before setting up the environment (host domains may have changed in the rucio-client)
+- Building the image itself can take ~10min!
+
