@@ -102,7 +102,7 @@ class TestUpload(Task):
 
                             # Add keys for successful upload.
                             entry["transfer_duration"] = time.time() - st
-                            entry["transfer_overhead"] = entry["file_size"] / (entry["transfer_duration"]*1000)
+                            entry["transfer_rate"] = entry["file_size"] / (entry["transfer_duration"]*1000)
                             entry["state"] = "UPLOAD-SUCCESSFUL"
                             entry["is_upload_successful"] = 1
                             self.logger.debug("Upload complete")
