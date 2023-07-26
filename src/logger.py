@@ -9,11 +9,13 @@ class Logger:
         level="DEBUG",
         fmt="%(asctime)s [%(name)s] %(module)20s %(levelname)5s %(process)d\t" +
         "%(message)s",
-        add_ch=True
+        add_ch=True,
+        logsF=None
     ):
         self._fmt = fmt
         self._name = name
         self._level = level
+        self._logsF = logsF 
 
         # Create Formatter object with desired logging format.
         #
@@ -33,6 +35,8 @@ class Logger:
         self._clearHandlers()
         if add_ch:
             self._addConsoleHandler()
+        if logsF:
+            self._addFileHandler()
 
     def _clearHandlers(self):
         self.get().handlers = []
@@ -42,6 +46,12 @@ class Logger:
         ch.setLevel(self.level)
         ch.setFormatter(fmt=self.formatter)
         self.get().addHandler(ch)
+        
+    def addFileHandler(self):
+        fh = logging.FileHandler(self.logsF)
+        fh.setLevel(self.level)
+        fh.setFormatter(fmt=self.formatter)
+        self.get().addHandler(fh)    
 
     @property
     def config(self):
@@ -66,3 +76,8 @@ class Logger:
     def name(self):
         """ Getter for logger name. """
         return self._name
+    
+    @property
+    def logsF(self):
+        """ Getter for logger file. """
+        return self._logsF
