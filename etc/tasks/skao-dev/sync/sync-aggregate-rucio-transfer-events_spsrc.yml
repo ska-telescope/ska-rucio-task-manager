@@ -1,0 +1,32 @@
+sync-aggregate-rucio-transfer-events-testing-functional:
+    description: "Sync and aggregate rucio transfer events for scope testing_functional"
+    module_name: "tasks.sync.events"
+    class_name: "SyncAndAggregateRucioTransferEvents"
+    enabled: true
+    args:
+    kwargs:
+      scope: coral
+      docs_limit:
+      fts:
+        query: true
+        endpoint: https://fts3-pilot.cern.ch:8446
+        access_token_envvar: OIDC_ACCESS_TOKEN
+        max_number_of_concurrent_threads: 100
+        wait_per_chunk_ms: 1000
+      es:
+        uri: https://monit.srcdev.skao.int/elastic
+        index: "hermes2"
+        scroll: '10m'
+        scroll_size: 10000
+        search_range_lte: now
+        search_range_gte: now-1440m
+      output:
+        databases:
+          - type: es
+            uri: https://monit.srcdev.skao.int/elastic
+            index: rucio-task-manager.skao-dev.tasks.sync.aggregated-rucio-transfer-events.coral-3f-200mb-500mb-1gb-1.5gb-2gb-3gb-4gb-spsrc-krsrc-jpsrc-imperial-cnsrc-cnaf-chsrc-casrc
+            auth:
+                user: workshop
+                password: workshop2023
+
+
