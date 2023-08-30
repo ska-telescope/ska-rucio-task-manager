@@ -1,0 +1,66 @@
+test-upload-dev:
+  description: "Test uploading RSEs (SPSRC, KRSRC, JPSRC, IMPERIAL, CNSRC, CASRC) 3 files 200MB, 500MB, 1GB, 1.5GB, 2GB, 3GB, 4GB"
+  module_name: "tasks.tests.upload"
+  class_name: "TestUpload"
+  enabled: true
+  args:
+  kwargs:
+    n_files: 3
+    sizes:
+      - 200000000  # bytes
+      - 500000000  # bytes
+      - 1000000000  # bytes
+      - 1500000000  # bytes
+      - 2000000000  # bytes
+      - 3000000000
+      - 4000000000  # bytes
+    lifetime: 3600 # seconds
+    protocols:
+      - https
+    rses:
+      - SPSRC_STORM
+      - KRSRC_STORM
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - CHSRC_XRD
+      - CASRC_XRD
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri:  https://monit.srcdev.skao.int/elastic/
+          index: rucio-task-manager.skao-dev.tasks.tests.coral-3f-200mb-500mb-1gb-1.5gb-2gb-3gb-4gb-spsrc-krsrc-jpsrc-imperial-cnsrc-cnaf-chsrc-casrc_ok
+          auth:
+            user: workshop
+            password: workshop2023
+
+
+test-upload-replication-dev:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: false
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    sizes:
+      - 100000 # bytes
+    lifetime: 3600 # seconds
+    rses:
+      - SPSRC_STORM
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://srcdev.skatelescope.org/rucio-dev/monit/elastic/
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+
