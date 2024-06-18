@@ -1,0 +1,14 @@
+test-ingestion:
+  description: "Test already-running Ingestion service"
+  module_name: "tasks.tests.ingestion_test"
+  class_name: "IngestionTest"
+  enabled: false
+  args:
+  kwargs:
+    n_files: 3
+    scope: "testing"
+    lifetime: 3600
+    prefix: "test1"
+    sizes: 100
+    ingest_dir: "/tmp/ingest/staging"
+    n_retries: 5
