@@ -35,7 +35,25 @@ spec:
               - name: TASK_FILE_PATH
                 value: "{{ $val_cronjob.task_file_path }}"
               {{ end }}
+            {{ if $val_cronjob.volumeMounts }}
+            volumeMounts:
+              {{- range $key_cronjob_volumeMount, $val_cronjob_volumeMount := $val_cronjob.volumeMounts }}
+              - name: "{{ $val_cronjob_volumeMount.name }}"
+                mountPath: "{{ $val_cronjob_volumeMount.mountPath }}"
+              {{- end }}
+            {{ end }}
           restartPolicy: OnFailure
+          {{ if $val_cronjob.volumes}}
+          volumes:
+            {{- range $key_cronjob_volumes, $val_cronjob_volumes := $val_cronjob.volumes }}
+            - name: "{{ $val_cronjob_volumes.name }}"
+            {{ if $val_cronjob_volumes.persistentVolumeClaim }}
+            persistentVolumeClaim:
+              {{- range $key_cronjob_volumePVC, $val_cronjob_volumePVC := $val_cronjob_volumes.persistentVolumeClaim }}
+              claimName: "{{ $val_cronjob_volumePVC.claimName }}"
+              {{- end }}
+            {{ end }}
+          {{ end }}
 ---
 {{ end }}
 {{- end }}
