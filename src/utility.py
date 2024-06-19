@@ -19,7 +19,7 @@ class bcolors:
     UNDERLINE = "\033[4m"
 
 
-def generateRandomFile(size, prefix="", suffix=""):
+def generateRandomFile(size, prefix="", suffix="", dirname=""):
     """
     Generate a randomly named file of size, <size>, with random contents.
 
@@ -31,7 +31,9 @@ def generateRandomFile(size, prefix="", suffix=""):
         suffix += "_"
     todaysDatetime = datetime.now().strftime("%d%m%yT%H.%M.%S")
     basename = "{}{}KB_{}{}".format(prefix, size // 1000, todaysDatetime, suffix)
-    absFilename = os.path.join(tempfile.gettempdir(), basename)
+    if not dirname:
+        dirname = tempfile.gettempdir()
+    absFilename = os.path.join(dirname, basename)
     with open(absFilename, "wb") as f:
         f.write(os.urandom(size))
     return f
@@ -97,3 +99,32 @@ def generateMetadataDict(key_prefix, n_num, n_str, n_obj, n_arr, n_bool, n_null)
         meta_dict[key_prefix + "_null_" + str(i_null)] = None
 
     return meta_dict
+
+def getObsCoreMetadataDict(
+        calib_level=0,
+        collection_name="test_collection",
+        dataproduct_type="test_file",
+        obs_title="SKA SRCNet Rucio Test",
+        access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id=",
+        access_format="application/x-votable+xml;content=datalink",
+        include_optional=True
+    ):
+    """
+    Generate a dictionary of metadata comprising data type counts according to the
+    passed arguments.
+    """
+
+    obscore_dict = {
+      "calib_level": calib_level,
+      "obs_collection": collection_name,
+      "dataproduct_type": dataproduct_type,
+      "obs_title": obs_title,
+      "access_url": access_url,
+      "access_format": access_format
+    }
+    if include_optional:
+        # TODO: Add additional randomly generated obscore keys
+        return obscore_dict
+    else:
+        return obscore_dict
+
