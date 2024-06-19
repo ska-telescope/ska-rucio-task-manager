@@ -44,3 +44,10 @@ cronjobs:
     weekday: "*"
     task_file_path: "etc/tasks/stubs.yml"
     disabled: yes
+    volumes:
+      - name: some-name
+        persistentVolumeClaim:
+          claimName: claim-name
+    volumeMounts:
+      - name: some-name
+        mountPath: "/path/"
