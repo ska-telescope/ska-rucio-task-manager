@@ -47,12 +47,13 @@ spec:
           volumes:
             {{- range $key_cronjob_volumes, $val_cronjob_volumes := $val_cronjob.volumes }}
             - name: "{{ $val_cronjob_volumes.name }}"
-            {{ if $val_cronjob_volumes.persistentVolumeClaim }}
-            persistentVolumeClaim:
-              {{- range $key_cronjob_volumePVC, $val_cronjob_volumePVC := $val_cronjob_volumes.persistentVolumeClaim }}
-              claimName: "{{ $val_cronjob_volumePVC.claimName }}"
-              {{- end }}
-            {{ end }}
+              {{ if $val_cronjob_volumes.persistentVolumeClaim }}
+              persistentVolumeClaim:
+                {{- range $key_cronjob_volumePVC, $val_cronjob_volumePVC := $val_cronjob_volumes.persistentVolumeClaim }}
+                claimName: "{{ $val_cronjob_volumePVC.claimName }}"
+                {{- end }}
+              {{ end }}
+            {{- end }}
           {{ end }}
 ---
 {{ end }}
