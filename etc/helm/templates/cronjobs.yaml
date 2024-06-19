@@ -1,5 +1,5 @@
 {{- range $key_cronjob, $val_cronjob := .Values.cronjobs }}
-{{ if not $val_cronjob.disabled }}
+{{ if $val_cronjob.enabled }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -41,9 +41,9 @@ spec:
               - name: "{{ $val_cronjob_volumeMount.name }}"
                 mountPath: "{{ $val_cronjob_volumeMount.mountPath }}"
               {{- end }}
-            {{ end }}
+            {{ end }}  
           restartPolicy: OnFailure
-          {{ if $val_cronjob.volumes}}
+          {{ if $val_cronjob.volumes }}
           volumes:
             {{- range $key_cronjob_volumes, $val_cronjob_volumes := $val_cronjob.volumes }}
             - name: "{{ $val_cronjob_volumes.name }}"
