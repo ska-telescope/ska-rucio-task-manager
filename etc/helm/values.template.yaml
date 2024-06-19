@@ -43,11 +43,11 @@ cronjobs:
     month: "*"
     weekday: "*"
     task_file_path: "etc/tasks/stubs.yml"
-    disabled: yes
+    enabled: true
     volumes:
       - name: some-name
         persistentVolumeClaim:
-          claimName: claim-name
+          - claimName: "claim-name"
     volumeMounts:
       - name: some-name
         mountPath: "/path/"
