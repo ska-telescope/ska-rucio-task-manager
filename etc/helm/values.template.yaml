@@ -43,7 +43,6 @@ cronjobs:
     month: "*"
     weekday: "*"
     task_file_path: "etc/tasks/stubs.yml"
-    enabled: true
     volumes:
       - name: some-name
         persistentVolumeClaim:
