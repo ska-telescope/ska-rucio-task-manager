@@ -23,8 +23,8 @@ class IngestionTest(Task):
         - sizes (array or int): The sizes of the files (bytes) to be created.
         - ingest_dir: The directory where files will be written (staging area monitored
             by ingestion).
-        - n_retries: The number of times to poll for files to be picked up and ingested
-            (5 sec interval).
+        - n_retries: The number of times to poll for files to be picked up and ingested.
+        - delay_s: The interval at which to poll at in seconds.
         - meta_suffix: Optionally specify the suffix for metadata files expected by
             ingestion.
 
@@ -37,6 +37,7 @@ class IngestionTest(Task):
         self.sizes = None
         self.ingest_dir = None
         self.n_retries = None
+        self.delay_s = None
         self.meta_suffix = "meta"
 
     def run(self, args, kwargs):
@@ -50,6 +51,7 @@ class IngestionTest(Task):
             self.sizes = kwargs["sizes"]
             self.ingest_dir = kwargs["ingest_dir"]
             self.n_retries = kwargs["n_retries"]
+            self.delay_s = kwargs["delay_s"]
             self.meta_suffix = kwargs.get("meta_suffix", "meta")
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for test.")
@@ -70,17 +72,18 @@ class IngestionTest(Task):
             return False
 
         # Generate random files, and associated metadata files, of specified sizes and
-        # names in staging directory:
+        # names in subdirectory of staging directory with name equivalent to the scope:
         new_names = []
         for idx in range(self.n_files):
             # Generate random file of size <size>
             file = generateRandomFile(
                 self.sizes[idx],
                 prefix="{}_{}".format(self.prefix, idx),
-                dirname=self.ingest_dir
+                dirname=os.path.join(self.ingest_dir, self.scope)
             )
-            
-            file_name = os.path.basename(file.name)
+
+            file_path = file.name
+            file_name = os.path.basename(file_path)
             new_names.append(file_name)
             
             meta_dict = {
@@ -89,15 +92,14 @@ class IngestionTest(Task):
                 "lifetime": self.lifetime,
                 "meta": getObsCoreMetadataDict()
             }
-            with open("{}.meta".format(file.name), 'w') as meta_file:
+            with open("{}.meta".format(file_path), 'w') as meta_file:
                 json.dump(meta_dict, meta_file, indent=2)
 
-        # Poll for files (every <delay> sec) to be added by ingestion service.
+        # Poll for files (every <delay_s> sec) to be added by ingestion service.
         # Once found, will check metadata is set correctly too (there can be a short
         # delay after upload for this to be set)
         did_client = DIDClient()
         max_retries = self.n_retries
-        delay = 5
         for file_name in new_names:
             retries = 0
             while retries < max_retries:
@@ -127,13 +129,13 @@ class IngestionTest(Task):
                     self.logger.info(
                         "Waiting for ingestion of DID {}...".format(did_name)
                     )
-                    time.sleep(delay)
+                    time.sleep(self.delay_s)
                     retries += 1
                     if retries == max_retries:
                         self.logger.critical(
                             "DID {} not found after {} sec".format(
                                 did_name,
-                                retries * delay
+                                retries * self.delay_s
                             )
                         )
                         return False

@@ -9,6 +9,7 @@ test-ingestion:
     scope: "testing"
     lifetime: 3600
     prefix: "test1"
-    sizes: 100
+    sizes: 1000
     ingest_dir: "/tmp/ingest/staging"
     n_retries: 5
+    delay_s: 15

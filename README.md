@@ -67,7 +67,8 @@ The structure of `etc/tasks` takes the following format: `<deployment>/<task_typ
 is a identifier for the datalake that the task will be deployed to.
 
 A Helm chart for deployment to a kubernetes cluster is kept in `etc/helm`. **For deployments via Helm, task definitions 
-must be specified separately in the `values` file.**
+must be specified separately in the `values.yaml` file.** If deploying by Argo, you will need to bump the chart version
+and specify the `targetRevision` in the corresponding argo `applicationset`.
 
 ## Usage
 
@@ -314,7 +315,6 @@ cronjobs:
     month: "*"
     weekday: "*"
     task_file_path: "path/to/test"
-    disabled: no
 ```
 
 Task files can either be specified as a path, `task_file_path`, or inline as yaml under `task_file_yaml`. If both are 
