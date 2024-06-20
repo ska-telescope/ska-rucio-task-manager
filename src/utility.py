@@ -33,6 +33,8 @@ def generateRandomFile(size, prefix="", suffix="", dirname=""):
     basename = "{}{}KB_{}{}".format(prefix, size // 1000, todaysDatetime, suffix)
     if not dirname:
         dirname = tempfile.gettempdir()
+    else:
+        os.makedirs(dirname, exist_ok=True)
     absFilename = os.path.join(dirname, basename)
     with open(absFilename, "wb") as f:
         f.write(os.urandom(size))
