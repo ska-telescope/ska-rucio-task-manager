@@ -121,7 +121,7 @@ def getObsCoreMetadataDict(
       "obs_collection": collection_name,
       "dataproduct_type": dataproduct_type,
       "obs_title": obs_title,
-      "access_url": access_url,
+      "access_url": access_url.format(),
       "access_format": access_format
     }
     if include_optional:

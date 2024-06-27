@@ -19,7 +19,7 @@ RUN python3 -m pip install --upgrade pip
 
 COPY requirements.txt /tmp/requirements.txt
 
-RUN python3 -m pip install -r /tmp/requirements.txt
+RUN python3 -m pip install -r /tmp/requirements.txt --index-url https://gitlab.com/api/v4/projects/51600992/packages/pypi/simple
 
 COPY --chown=user . ${RUCIO_TASK_MANAGER_ROOT}
 
