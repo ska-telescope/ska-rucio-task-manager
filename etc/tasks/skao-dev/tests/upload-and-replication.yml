@@ -52,4 +52,3 @@ test-upload-replication-dev:
         - type: es
           uri: https://monit.srcdev.skao.int/elastic
           index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
-

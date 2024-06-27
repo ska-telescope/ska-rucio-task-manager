@@ -1,8 +1,8 @@
 test-ingestion:
-  description: "Test already-running Ingestion service"
-  module_name: "tasks.tests.ingestion_test"
-  class_name: "IngestionTest"
-  enabled: false
+  description: "Test ingestion by spawning a local instance of the ska-src-ingestion service."
+  module_name: "tasks.tests.ingestion"
+  class_name: "TestIngestionLocal"
+  enabled: true
   args:
   kwargs:
     n_files: 3
@@ -10,6 +10,36 @@ test-ingestion:
     lifetime: 3600
     prefix: "test1"
     sizes: 1000
-    ingest_dir: "/tmp/ingest/staging"
+    ingest_dir: "/tmp/ingest"
+    metadata_schema: |-
+      {
+        "type": "object",
+        "version": 1,
+        "description": "Metadata schema for file ingestion.",
+        "properties": {
+          "namespace": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lifetime": {
+            "type": "number"
+          },
+          "dataset_name": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": ["namespace", "name", "lifetime"],
+        "additionalProperties": true
+      }
+    metadata_suffix: meta
+    ingestion_backend_name: rucio
+    ingestion_polling_frequency_s: 5
+    ingestion_iteration_batch_size: 100
+    rucio_ingest_rse_name: STFC_STORM
     n_retries: 5
     delay_s: 15
