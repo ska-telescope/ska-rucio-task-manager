@@ -5,6 +5,7 @@ test-ingestion:
   enabled: true
   args:
   kwargs:
+    task_name: "ingestion_test"
     n_files: 3
     scope: "testing"
     lifetime: 3600
@@ -42,4 +43,9 @@ test-ingestion:
     ingestion_iteration_batch_size: 100
     rucio_ingest_rse_name: STFC_STORM
     n_retries: 5
-    delay_s: 15
+    delay_s: 5
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.ingestion

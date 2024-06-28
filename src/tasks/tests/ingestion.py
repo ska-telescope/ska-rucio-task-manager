@@ -2,7 +2,9 @@ import json
 import os
 import subprocess
 import time
+from datetime import datetime
 
+from elasticsearch import Elasticsearch
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import DataIdentifierNotFound
 
@@ -37,6 +39,7 @@ class TestIngestionLocal(Task):
 
         :param logger: The logger instance to be used for logging.
         """
+        self.task_name = None
         self.n_files = None
         self.scope = None
         self.lifetime = None
@@ -52,6 +55,7 @@ class TestIngestionLocal(Task):
         self.rucio_pfn_basepath = None
         self.n_retries = None
         self.delay_s = None
+        self.outputDatabases = None
 
     def begin_ingest_service(self, ingest_dir, metadata_schema, metadata_suffix, ingestion_backend_name,
                              frequency, batch_size, rucio_ingest_rse_name=None, rucio_pfn_basepath=None):
@@ -85,6 +89,7 @@ class TestIngestionLocal(Task):
         super().run()
         self.tic()
         try:
+            self.task_name = kwargs["task_name"]
             self.n_files = kwargs["n_files"]
             self.scope = kwargs["scope"]
             self.lifetime = kwargs["lifetime"]
@@ -99,6 +104,7 @@ class TestIngestionLocal(Task):
             self.rucio_ingest_rse_name = kwargs["rucio_ingest_rse_name"]
             self.n_retries = kwargs["n_retries"]
             self.delay_s = kwargs["delay_s"]
+            self.outputDatabases = kwargs["output"]["databases"]
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for test.")
             self.logger.critical(repr(e))
@@ -124,6 +130,17 @@ class TestIngestionLocal(Task):
                                   self.ingestion_backend_name, self.ingestion_polling_frequency_s,
                                   self.ingestion_iteration_batch_size, self.rucio_ingest_rse_name,
                                   self.rucio_pfn_basepath)
+        
+        # Set up log message:
+        test_id = "ingestion_test_{}".format(datetime.now().isoformat())
+        entry = {
+            "task_name": self.task_name,
+            "name": test_id,
+            "scope": self.scope,
+            "n_files": self.n_files,
+            "lifetime": self.lifetime,
+            "attempted_at": datetime.now().isoformat(),
+        }
 
         # Generate random files, and associated metadata files, of specified sizes and
         # names in subdirectory of staging directory with name equivalent to the scope:
@@ -157,6 +174,8 @@ class TestIngestionLocal(Task):
         # delay after upload for this to be set)
         did_client = DIDClient()
         max_retries = self.n_retries
+        succeeded = 0
+        failed = 0
         for file_name in new_names:
             retries = 0
             while retries < max_retries:
@@ -178,6 +197,7 @@ class TestIngestionLocal(Task):
                         self.logger.info(
                             "DID found with expected metadata: {}".format(did)
                         )
+                        succeeded += 1
                         break
                 except DataIdentifierNotFound:
                     # Likely because the ingestion service has not yet picked up the
@@ -195,12 +215,34 @@ class TestIngestionLocal(Task):
                                 retries * self.delay_s
                             )
                         )
-                        return False
+                        failed += 1
+                        break
                 except Exception as e:
                     self.logger.critical(
                         "Error encountered when polling for data {}".format(e)
                     )
-                    return False
+                    failed += 1
+                    break
+
+        if failed == 0:
+            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-SUCCESSFUL"
+            entry["success_rate"] = 1.0
+            entry["is_ingestion_successful"] = 1
+        else:
+            entry["failed_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-FAILED"
+            entry["success_rate"] = succeeded / (succeeded + failed)
+            entry["is_ingestion_successful"] = 0
+        
+        # Push task output to databases.
+        #
+        if self.outputDatabases is not None:
+            for database in self.outputDatabases:
+                if database["type"] == "es":
+                    self.logger.info("Sending output to ES database: {}...".format(database['uri']))
+                    es = Elasticsearch([database['uri']])
+                    es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
@@ -225,6 +267,7 @@ class TestIngestionRemote(Task):
 
         :param logger: The logger instance to be used for logging.
         """
+        self.task_name = None
         self.n_files = None
         self.scope = None
         self.lifetime = None
@@ -233,11 +276,14 @@ class TestIngestionRemote(Task):
         self.ingest_dir = None
         self.n_retries = None
         self.delay_s = None
+        self.meta_suffix = "meta"
+        self.outputDatabases = None
 
     def run(self, args, kwargs):
         super().run()
         self.tic()
         try:
+            self.task_name = kwargs["task_name"]
             self.n_files = kwargs["n_files"]
             self.scope = kwargs["scope"]
             self.lifetime = kwargs["lifetime"]
@@ -246,6 +292,8 @@ class TestIngestionRemote(Task):
             self.ingest_dir = kwargs["ingest_dir"]
             self.n_retries = kwargs["n_retries"]
             self.delay_s = kwargs["delay_s"]
+            self.meta_suffix = kwargs.get("meta_suffix", "meta")
+            self.outputDatabases = kwargs["output"]["databases"]
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for test.")
             self.logger.critical(repr(e))
@@ -263,6 +311,17 @@ class TestIngestionRemote(Task):
         else:
             self.logger.critical("File sizes should either be a list or int")
             return False
+        
+        # Set up log message:
+        test_id = "ingestion_test_{}".format(datetime.now().isoformat())
+        entry = {
+            "task_name": self.task_name,
+            "name": test_id,
+            "scope": self.scope,
+            "n_files": self.n_files,
+            "lifetime": self.lifetime,
+            "attempted_at": datetime.now().isoformat(),
+        }
 
         # Generate random files, and associated metadata files, of specified sizes and
         # names in subdirectory of staging directory with name equivalent to the scope:
@@ -293,6 +352,8 @@ class TestIngestionRemote(Task):
         # delay after upload for this to be set)
         did_client = DIDClient()
         max_retries = self.n_retries
+        succeeded = 0
+        failed = 0
         for file_name in new_names:
             retries = 0
             while retries < max_retries:
@@ -314,6 +375,7 @@ class TestIngestionRemote(Task):
                         self.logger.info(
                             "DID found with expected metadata: {}".format(did)
                         )
+                        succeeded += 1
                         break
                 except DataIdentifierNotFound:
                     # Likely because the ingestion service has not yet picked up the
@@ -331,12 +393,34 @@ class TestIngestionRemote(Task):
                                 retries * self.delay_s
                             )
                         )
-                        return False
+                        failed += 1
+                        break
                 except Exception as e:
                     self.logger.critical(
                         "Error encountered when polling for data {}".format(e)
                     )
-                    return False
+                    failed += 1
+                    break
+
+        if failed == 0:
+            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-SUCCESSFUL"
+            entry["success_rate"] = 1.0
+            entry["is_ingestion_successful"] = 1
+        else:
+            entry["failed_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-FAILED"
+            entry["success_rate"] = succeeded / (succeeded + failed)
+            entry["is_ingestion_successful"] = 0
+        
+        # Push task output to databases.
+        #
+        if self.outputDatabases is not None:
+            for database in self.outputDatabases:
+                if database["type"] == "es":
+                    self.logger.info("Sending output to ES database...")
+                    es = Elasticsearch([database['uri']])
+                    es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
