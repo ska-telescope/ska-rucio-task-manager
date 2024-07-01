@@ -9,7 +9,7 @@ from rucio.client.didclient import DIDClient
 from rucio.common.exception import DataIdentifierNotFound
 
 from tasks.task import Task
-from utility import generateRandomFile, getObsCoreMetadataDict
+from utility import bcolors, generateRandomFile, getObsCoreMetadataDict
 
 
 class TestIngestionLocal(Task):
@@ -164,7 +164,7 @@ class TestIngestionLocal(Task):
                 "meta": getObsCoreMetadataDict(
                     access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
                         self.scope, file_name)
-                )
+                    )
             }
             with open("{}.meta".format(file_path), 'w') as meta_file:
                 json.dump(meta_dict, meta_file, indent=2)
@@ -189,11 +189,16 @@ class TestIngestionLocal(Task):
                             did["name"],
                             plugin="POSTGRES_JSON"
                         )
-                        if not retrieved_meta == getObsCoreMetadataDict():
+                        expected_meta = getObsCoreMetadataDict(
+                            access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
+                                self.scope, file_name)
+                            )
+                        if not retrieved_meta == expected_meta:
                             self.logger.critical(
                                 "Metadata mismatch for DID: {}".format(did["name"])
                             )
-                            return False
+                            failed += 1
+                            break
                         self.logger.info(
                             "DID found with expected metadata: {}".format(did)
                         )
@@ -225,16 +230,32 @@ class TestIngestionLocal(Task):
                     break
 
         if failed == 0:
+            self.logger.info(
+                "{}Successfully ingested {} / {} files.{}".format(
+                    bcolors.OKGREEN,
+                    succeeded,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
             entry["succeeded_at"] = datetime.now().isoformat()
             entry["state"] = "INGESTION-SUCCESSFUL"
             entry["success_rate"] = 1.0
             entry["is_ingestion_successful"] = 1
         else:
+            self.logger.info(
+                "{}Failed to ingest {} / {} files.{}".format(
+                    bcolors.FAIL,
+                    failed,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
             entry["failed_at"] = datetime.now().isoformat()
             entry["state"] = "INGESTION-FAILED"
             entry["success_rate"] = succeeded / (succeeded + failed)
             entry["is_ingestion_successful"] = 0
-        
+
         # Push task output to databases.
         #
         if self.outputDatabases is not None:
@@ -367,11 +388,16 @@ class TestIngestionRemote(Task):
                             did["name"],
                             plugin="POSTGRES_JSON"
                         )
-                        if not retrieved_meta == getObsCoreMetadataDict():
+                        expected_meta = getObsCoreMetadataDict(
+                            access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
+                                self.scope, file_name)
+                            )
+                        if not retrieved_meta == expected_meta:
                             self.logger.critical(
                                 "Metadata mismatch for DID: {}".format(did["name"])
                             )
-                            return False
+                            failed += 1
+                            break
                         self.logger.info(
                             "DID found with expected metadata: {}".format(did)
                         )
@@ -403,11 +429,27 @@ class TestIngestionRemote(Task):
                     break
 
         if failed == 0:
+            self.logger.info(
+                "{}Successfully ingested {} / {} files.{}".format(
+                    bcolors.OKGREEN,
+                    succeeded,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
             entry["succeeded_at"] = datetime.now().isoformat()
             entry["state"] = "INGESTION-SUCCESSFUL"
             entry["success_rate"] = 1.0
             entry["is_ingestion_successful"] = 1
         else:
+            self.logger.info(
+                "{}Failed to ingest {} / {} files.{}".format(
+                    bcolors.FAIL,
+                    failed,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
             entry["failed_at"] = datetime.now().isoformat()
             entry["state"] = "INGESTION-FAILED"
             entry["success_rate"] = succeeded / (succeeded + failed)
