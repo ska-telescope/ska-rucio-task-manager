@@ -5,7 +5,7 @@ metadata-based-replication:
   enabled: true
   args:
   kwargs:
-    scope: "ajm_test"
+    scope: "sp4274_subscriptions"
     rse: "SPSRC_STORM"
     size: 10000
     lifetime: 3600
@@ -15,7 +15,7 @@ metadata-based-replication:
     subscription_name: test_subscription
     filters:
       scope:
-        - "ajm_test"
+        - "sp4274_subscriptions"
       project:
         - skao_proj_1
     replication_rules:
@@ -24,7 +24,7 @@ metadata-based-replication:
         lifetime: 3600
         activity: User Subscriptions
     comments: Test subscription
-    subscription_lifetime: 1
+    subscription_lifetime: 360
     retroactive: false
     dry_run: false
     priority: 3
