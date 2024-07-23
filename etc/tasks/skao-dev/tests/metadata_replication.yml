@@ -5,14 +5,15 @@ metadata-based-replication:
   enabled: true
   args:
   kwargs:
+    account: "ajm"
     scope: "sp4274_subscriptions"
     rse: "SPSRC_STORM"
     size: 10000
-    lifetime: 3600
+    lifetime: 1
     dataset_name: null
     fixed_metadata: # Explicit k-v pairs to set as metadata
       project: skao_proj_1
-    subscription_name: test_subscription
+    subscription_name: test_subscription4
     filters:
       scope:
         - "sp4274_subscriptions"
@@ -24,7 +25,7 @@ metadata-based-replication:
         lifetime: 3600
         activity: User Subscriptions
     comments: Test subscription
-    subscription_lifetime: 360
+    subscription_lifetime: 1
     retroactive: false
     dry_run: false
     priority: 3
