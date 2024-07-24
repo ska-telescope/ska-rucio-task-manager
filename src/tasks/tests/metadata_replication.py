@@ -204,17 +204,15 @@ class MetadataReplication(Task):
             while time.time() - start_time < timeout:
                 rules = list(self.rule_client.list_replication_rules({'scope': self.scope, 'name': datasetDID.split(':')[1]}))
                 if rules:
-                    formatted_rules = "\n".join([
-                        f"Rule ID: {rule['id']} | Scope: {rule['scope']} | Name: {rule['name']} | RSE: {rule['rse_expression']} | "
-                        f"Copies: {rule['copies']} | State: {rule['state']}"
-                        for rule in rules
-                    ])
-                    self.logger.info(f"{bcolors.OKGREEN}Replication rules for {datasetDID}:\n{bcolors.BOLD}{formatted_rules}{bcolors.ENDC}")
-                    data_for_grafana.update({
-                        "rules_status": "Success",
-                        "replicated_rse": ', '.join(rule['rse_expression']),
-                        "state": ', '.join(rule['state'])                        
-                    })
+                    for rule in rules:
+                        formatted_rule = (f"Rule ID: {rule['id']} | Scope: {rule['scope']} | Name: {rule['name']} | "
+                                          f"RSE: {rule['rse_expression']} | Copies: {rule['copies']} | State: {rule['state']}")
+                        self.logger.info(f"{bcolors.OKGREEN}Replication rules for {datasetDID}:\n{bcolors.BOLD}{formatted_rule}{bcolors.ENDC}")
+                        data_for_grafana.update({
+                            "rules_status": "Success",
+                            "replicated_rse": rule['rse_expression'],
+                            "state": rule['state']
+                        })
                     break
                 time.sleep(10)
             else:
