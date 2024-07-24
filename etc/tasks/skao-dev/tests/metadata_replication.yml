@@ -1,8 +1,3 @@
-# A simple test which sets up a metadata-based subscription to automatically create a replication rule.
-# This workflow consists of:
-# - Upload of data into new dataset with metadata at RSE 1
-# - Creation of metadata-based subscription to replicate to RSE 2
-# Data should then be replicated at RSE 2 (to be manually verified).
 metadata-based-replication:
   description: "Upload data and set up a metadata-based subscription for it."
   module_name: "tasks.tests.metadata_replication"
@@ -10,22 +5,23 @@ metadata-based-replication:
   enabled: true
   args:
   kwargs:
-    scope: SKA_SKAO_COLL-testing
-    upload_to: SARA-DCACHE
+    account: "ajm"
+    scope: "sp4274_subscriptions"
+    rse: "SPSRC_STORM"
     size: 10000
-    lifetime: 3600
+    lifetime: 1
     dataset_name: null
     fixed_metadata: # Explicit k-v pairs to set as metadata
       project: skao_proj_1
-    subscription_name: test_subscription
-    filter:
+    subscription_name: test_subscription4
+    filters:
       scope:
-        - SKA_SKAO_COLL-testing
+        - "sp4274_subscriptions"
       project:
         - skao_proj_1
     replication_rules:
       - copies: 1
-        rse_expression: EULAKE-1
+        rse_expression: "NLSRC_DCACHE"
         lifetime: 3600
         activity: User Subscriptions
     comments: Test subscription
