@@ -12,6 +12,7 @@ from utility import generateRandomFile,bcolors
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.client.didclient import DIDClient
+from rucio.common.exception import SubscriptionNotFound
 
 index_name = 'rucio_metadata_replication'
 es_url = 'https://monit.srcdev.skao.int/elastic'
@@ -133,7 +134,14 @@ class MetadataReplication(Task):
             #
             try:
                 replication_rules = kwargs.get('replication_rules', [])
-                existing_subs = list(self.rucio_client.list_subscriptions(account=self.account))
+                # If no subscriptions exist for user, list_subscriptions will return SubscriptionNotFound:
+                try:
+                    existing_subs = list(self.rucio_client.list_subscriptions(account=self.account))
+                except SubscriptionNotFound:
+                    subscription_exists = False
+                    existing_subs = []
+                except Exception:
+                    raise
                 subscription_exists = any(sub['name'] == self.subscriptionName for sub in existing_subs)
                 subscription_data = {
                     'filter_': self.filters,
