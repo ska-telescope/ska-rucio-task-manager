@@ -14,7 +14,7 @@ from rucio.client.ruleclient import RuleClient
 from rucio.client.didclient import DIDClient
 
 index_name = 'rucio_metadata_replication'
-es_url = 'http://localhost:9200'
+es_url = 'https://monit.srcdev.skao.int/elastic'
 
 class MetadataReplication(Task):
     """
