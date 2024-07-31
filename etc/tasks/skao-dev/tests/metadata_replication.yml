@@ -10,7 +10,7 @@ metadata-based-replication:
     rse: "SPSRC_STORM"
     size: 10000
     lifetime: 1
-    dataset_name: null
+    dataset_name: "testing_metadata_subscriptions"
     fixed_metadata: # Explicit k-v pairs to set as metadata
       project: skao_proj_1
     subscription_name: test_subscription4
