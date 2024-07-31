@@ -56,6 +56,7 @@ class MetadataReplication(Task):
         self.retroactive = None
         self.dryRun = None
         self.priority = None
+        self.timeout = None
 
     def run(self, args, kwargs):
         super().run()
@@ -83,6 +84,7 @@ class MetadataReplication(Task):
             self.retroactive = kwargs["retroactive"]
             self.dryRun = kwargs["dry_run"]
             self.priority = kwargs["priority"]
+            self.timeout = kwargs["timeout"]
 
             # Create a dataset to house the data, named with today's date and scope <scope>.
             # 
@@ -176,7 +178,7 @@ class MetadataReplication(Task):
 
             # Check for replicas and prepare data for elasticsearch
             #
-            timeout = 60
+            timeout = self.timeout
             start_time = time.time()
 
             # Initialise the dictionary of variables
