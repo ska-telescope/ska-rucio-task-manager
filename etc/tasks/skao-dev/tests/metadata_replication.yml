@@ -29,3 +29,4 @@ metadata-based-replication:
     retroactive: false
     dry_run: false
     priority: 3
+    timeout: 300
