@@ -73,7 +73,7 @@ class MetadataReplication(Task):
             self.rse = kwargs["rse"]
             self.size = kwargs["size"]
             self.lifetime = kwargs["lifetime"]
-            self.datasetName = kwargs["dataset_name"]
+            self.datasetName = kwargs['dataset_name']
             self.fixedMetadata = kwargs["fixed_metadata"]
             self.subscriptionName = kwargs["subscription_name"]
             self.filters = kwargs["filters"]
@@ -85,9 +85,15 @@ class MetadataReplication(Task):
             self.priority = kwargs["priority"]
 
             # Create a dataset to house the data, named with today's date and scope <scope>.
+            # 
+            # This dataset must be a new dataset otherwise the is_new flag will not be set on the dataset and the transmogrifier daemon will not pick 
+            # it up to be processed.
+            #
+            # The alternative is to use the subscription reevaluate command, but then all files in the dataset will be reevaluated against the 
+            # subscriptions, which may not be desirable for a test.
             #
             self.logger.info(f"{bcolors.OKGREEN}Creating a new dataset{bcolors.ENDC}")
-            datasetDID = createCollection(self.logger.name, self.scope, self.datasetName)
+            datasetDID = createCollection(self.logger.name, self.scope, "{}_{}".format(self.datasetName, datetime.now().strftime("%d%m%yT%H.%M.%S")))
             if not datasetDID:
                 self.logger.info(f"{bcolors.FAIL}Failed to create a dataset{bcolors.ENDC}")
                 return
