@@ -1,21 +1,19 @@
-from datetime import datetime
+import json
 import os
 import time
-import requests
-import json
-from common.rucio.helpers import createCollection
+from datetime import datetime
+
+from elasticsearch import Elasticsearch
 from rucio.client.client import Client
-from rucio.client.uploadclient import UploadClient
-from rucio.client.ruleclient import RuleClient
-from tasks.task import Task
-from utility import generateRandomFile,bcolors
+from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
-from rucio.client.didclient import DIDClient
+from rucio.client.uploadclient import UploadClient
 from rucio.common.exception import SubscriptionNotFound
 
-index_name = 'rucio_metadata_replication'
-es_url = 'https://monit.srcdev.skao.int/elastic'
+from common.rucio.helpers import createCollection
+from tasks.task import Task
+from utility import bcolors, generateRandomFile
 
 class MetadataReplication(Task):
     """
@@ -57,6 +55,7 @@ class MetadataReplication(Task):
         self.dryRun = None
         self.priority = None
         self.timeout = None
+        self.outputDatabases = None
 
     def run(self, args, kwargs):
         super().run()
@@ -85,6 +84,7 @@ class MetadataReplication(Task):
             self.dryRun = kwargs["dry_run"]
             self.priority = kwargs["priority"]
             self.timeout = kwargs["timeout"]
+            self.outputDatabases = kwargs["output"]["databases"]
 
             # Create a dataset to house the data, named with today's date and scope <scope>.
             # 
@@ -237,15 +237,15 @@ class MetadataReplication(Task):
                     "rules_status": "Fail"
                 })
 
-            # Send data to eleasticsearch
+            # Push task output to databases.
             #
             self.logger.info(f"{bcolors.OKBLUE}Sending the following to Elasticsearch: {data_for_grafana}{bcolors.ENDC}")
-            headers = {"Content-Type": "application/json"}
-            response = requests.post(f"{es_url}/{index_name}/_doc", headers=headers, data=json.dumps(data_for_grafana))
-            if response.status_code not in [200, 201]:
-                self.logger.error(f"{bcolors.FAIL}Failed to index document: {response.text}{bcolors.FAIL}")
-            else:
-                self.logger.info(f"{bcolors.OKGREEN}Data successfully sent to Elasticsearch.{bcolors.OKGREEN}")
+            if self.outputDatabases is not None:
+                for database in self.outputDatabases:
+                    if database["type"] == "es":
+                        self.logger.info("Sending output to ES database...")
+                        es = Elasticsearch([database['uri']])
+                        es.index(index=database["index"], id=data_for_grafana['file_name'], body=data_for_grafana)
 
             return data_for_grafana
 

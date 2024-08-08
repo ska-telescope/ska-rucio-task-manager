@@ -9,7 +9,7 @@ metadata-based-replication:
     scope: "sp4274_subscriptions"
     rse: "SPSRC_STORM"
     size: 10000
-    lifetime: 1
+    lifetime: 3600
     dataset_name: "testing_metadata_subscriptions"
     fixed_metadata: # Explicit k-v pairs to set as metadata
       project: skao_proj_1
@@ -25,8 +25,13 @@ metadata-based-replication:
         lifetime: 3600
         activity: User Subscriptions
     comments: Test subscription
-    subscription_lifetime: 1
+    subscription_lifetime: 3600
     retroactive: false
     dry_run: false
     priority: 3
     timeout: 300
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio_metadata_replication
