@@ -54,6 +54,7 @@ class MetadataReplication(Task):
         self.dryRun = None
         self.priority = None
         self.timeout = None
+        self.delay_s = None
         self.outputDatabases = None
 
     def run(self, args, kwargs):
@@ -78,6 +79,7 @@ class MetadataReplication(Task):
         self.dryRun = kwargs["dry_run"]
         self.priority = kwargs["priority"]
         self.timeout = kwargs["timeout"]
+        self.delay_s = kwargs["delay_s"]
         self.outputDatabases = kwargs["output"]["databases"]
 
         # Instantiate Rucio client objects; useful to see UploadClient logs
@@ -202,7 +204,7 @@ class MetadataReplication(Task):
                 break
             else:
                 self.logger.info(f"Waiting for replication rules to be created...")
-                time.sleep(10)
+                time.sleep(self.delay_s)
         else:
             self.logger.error(f"{bcolors.FAIL}Timeout reached without detecting expected replica rules.{bcolors.ENDC}")                
 
@@ -220,7 +222,7 @@ class MetadataReplication(Task):
                     "rse": ', '.join(latest_replica['rses'].keys()),
                 })
                 break
-            time.sleep(10)
+            time.sleep(self.delay_s)
         else:
             self.logger.error(f"{bcolors.FAIL}Timeout reached without detecting replicas.{bcolors.ENDC}")
 

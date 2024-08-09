@@ -29,6 +29,7 @@ metadata-based-replication:
     retroactive: false
     dry_run: false
     priority: 3
+    delay_s: 10 # Interval between retries
     timeout: 300
     output:
       databases:
