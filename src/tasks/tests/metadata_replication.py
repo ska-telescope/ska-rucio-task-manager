@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 from elasticsearch import Elasticsearch
-from rucio.client.client import Client
+from rucio.client.subscriptionclient import SubscriptionClient
 from rucio.client.didclient import DIDClient
 from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
@@ -60,15 +60,17 @@ class MetadataReplication(Task):
     def run(self, args, kwargs):
         super().run()
         self.tic()
-        self.account = kwargs.get("account")
-        self.rucio_client = Client()
-        self.replica_client = ReplicaClient()
-        self.rule_client = RuleClient()
-        self.did_client = DIDClient()
+        subscription_client = SubscriptionClient()
+        replica_client = ReplicaClient()
+        rule_client = RuleClient()
+        did_client = DIDClient()
+        # Can be useful to see UploadClient logging
+        upload_client = UploadClient(logger=self.logger)
 
         try:
             # Assign variables from the metadata_replication.yml kwargs.
-            #            
+            #
+            self.account = kwargs.get("account")     
             self.scope = kwargs["scope"]
             self.rse = kwargs["rse"]
             self.size = kwargs["size"]
@@ -107,7 +109,7 @@ class MetadataReplication(Task):
             try:
                metadata = {key: value for key, value in self.fixedMetadata.items()}
                self.logger.debug(f"{bcolors.OKBLUE}Preparing to set bulk metadata for dataset {datasetDID.split(':')[1]} at scope {self.scope} with metadata: {metadata}{bcolors.ENDC}")
-               self.did_client.set_metadata_bulk(self.scope, datasetDID.split(':')[1], metadata)
+               did_client.set_metadata_bulk(self.scope, datasetDID.split(':')[1], metadata)
                self.logger.info(f"{bcolors.OKGREEN}Bulk metadata set successfully on {datasetDID}{bcolors.ENDC}")
             except Exception as e:
                 self.logger.error(f"{bcolors.FAIL}Failed to set metadata in bulk: {str(e)}{bcolors.ENDC}")
@@ -124,15 +126,14 @@ class MetadataReplication(Task):
                 "lifetime": self.lifetime,
                 "register_after_upload": True
             }]
-            client = UploadClient(logger=self.logger)
             start = time.time()
-            client.upload(items=items)
+            upload_client.upload(items=items)
             attachment = {
                 "scope": self.scope,
                 "name": datasetDID.split(":")[1],
                 "dids": [{"scope": self.scope, "name": os.path.basename(file_path)}]
             }
-            self.rucio_client.attach_dids_to_dids(attachments=[attachment])
+            did_client.attach_dids_to_dids(attachments=[attachment])
             duration = time.time() - start
             self.logger.info(f"{bcolors.OKGREEN}Duration: {duration}{bcolors.ENDC}")
             self.logger.info(f"{bcolors.OKGREEN}Upload complete{bcolors.ENDC}")
@@ -144,7 +145,7 @@ class MetadataReplication(Task):
                 replication_rules = kwargs.get('replication_rules', [])
                 # If no subscriptions exist for user, list_subscriptions will return SubscriptionNotFound:
                 try:
-                    existing_subs = list(self.rucio_client.list_subscriptions(account=self.account))
+                    existing_subs = list(subscription_client.list_subscriptions(account=self.account))
                 except SubscriptionNotFound:
                     subscription_exists = False
                     existing_subs = []
@@ -165,13 +166,13 @@ class MetadataReplication(Task):
                     #
                     self.logger.info(f"{bcolors.OKBLUE}Subscription {self.subscriptionName} exists, so updating it with {subscription_data}.{bcolors.ENDC}")
                     self.logger.info(f"Using user account: {self.account}")
-                    self.rucio_client.update_subscription(self.subscriptionName, account=self.account, **subscription_data)
+                    subscription_client.update_subscription(self.subscriptionName, account=self.account, **subscription_data)
                 else:
                     # Create a new subscription
                     #
                     self.logger.info(f"{bcolors.OKGREEN}Creating new subscription: {self.subscriptionName} with {subscription_data}.{bcolors.ENDC}")
                     self.logger.info(f"Using account: {self.account}")
-                    self.rucio_client.add_subscription(self.subscriptionName, account=self.account, **subscription_data)
+                    subscription_client.add_subscription(self.subscriptionName, account=self.account, **subscription_data)
             except Exception as e:
                 self.logger.error(f"{bcolors.FAIL}Failed to update or create subscription: {str(e)}{bcolors.ENDC}")
                 raise
@@ -197,7 +198,7 @@ class MetadataReplication(Task):
 
             # Check the replicas
             while time.time() - start_time < timeout:
-                replicas = list(self.replica_client.list_replicas([{'scope': self.scope, 'name': datasetDID.split(':')[1]}]))
+                replicas = list(replica_client.list_replicas([{'scope': self.scope, 'name': datasetDID.split(':')[1]}]))
                 if replicas:
                     latest_replica = replicas[-1]
                     formatted_latest_replica = f"File: {latest_replica['name']} | Size: {latest_replica['bytes']} bytes | RSEs: {', '.join(latest_replica['rses'].keys())}"
@@ -218,7 +219,7 @@ class MetadataReplication(Task):
 
             # Check the replication rules
             while time.time() - start_time < timeout:
-                rules = list(self.rule_client.list_replication_rules({'scope': self.scope, 'name': datasetDID.split(':')[1]}))
+                rules = list(rule_client.list_replication_rules({'scope': self.scope, 'name': datasetDID.split(':')[1]}))
                 if rules:
                     for rule in rules:
                         formatted_rule = (f"Rule ID: {rule['id']} | Scope: {rule['scope']} | Name: {rule['name']} | "
