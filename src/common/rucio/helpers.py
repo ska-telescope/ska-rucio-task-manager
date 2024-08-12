@@ -46,3 +46,36 @@ def createCollection(loggerName, scope, name=None, collectionType="DATASET"):
         return False
 
     return did
+
+
+def matchRules(loggerName, target_rules, found_rules, match_keys=['copies', 'rse_expression']):
+    """
+    Checks if all target rules are present in the list of found rules by matching specified keys.
+
+    Parameters:
+    -----------
+    loggerName : str
+        Logger name
+    target_rules : list of dict
+        Target rules to be matched.
+    found_rules : list of dict
+        Found rules to search within.
+    match_keys : list of str, optional
+        Keys to match (default is ['copies', 'rse_expression']).
+
+    Returns:
+    --------
+    bool
+        True if all target rules are matched in the found rules, otherwise False.
+    """
+    logger = logging.getLogger(loggerName)
+    for target_rule in target_rules:
+        matched = False
+        for found_rule in found_rules:
+            if all(found_rule.get(key) == target_rule.get(key) for key in match_keys):
+                matched = True
+                break
+        if not matched:
+            logger.debug("Expected rule {} not found.".format(target_rule))
+            return False
+    return True
