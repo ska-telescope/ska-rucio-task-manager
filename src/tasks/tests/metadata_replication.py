@@ -14,25 +14,28 @@ from common.rucio.helpers import createCollection, matchRules
 from tasks.task import Task
 from utility import bcolors, generateRandomFile
 
+
 class MetadataReplication(Task):
     """
-    Conducts a metadata replication test in the Rucio environment.
+    Conducts a metadata replication test in the Rucio environment. Uses parameters specified in
+    the `metadata_replication.yml` configuration file.
 
-    This script performs the following operations:
-    - Creates a dataset and file within that dataset using parameters in the `metadata_replication.yml` configuration file.
-    - Attaches user defined metadata to the dataset.
-    - Uploads the generated file to the initial RSE.
-    - A subscription is created/updated and Rucio generates new rules from it, specifically a rule to replicate the dataset to another RSE.
-    - Validates the replication process by listing file replicas and associated replication rules.
-    - Sends results to Elasticsearch/Grafana.
-
-    Parameters such as scope, rse, and metadata are configured through `metadata_replication.yml`
+    This script performs the following steps:
+    - Create a new dataset.
+    - Set user-defined metadata to the dataset.
+    - Upload a randomly-generated file to the specified RSE and attach to the new dataset
+    - A subscription is created/updated which seeks to match the specified filters. Once a match
+      is detected, Rucio should automatically create specified rules.
+    - Validates the replication process by verifying replication rules, and corresponding
+      replicas, have been created correctly.
+    - Sends results to Elasticsearch database.
 
     Methods:
         run(self, args, kwargs): Executes the test sequence.
 
     Example usage:
-        Ensure that `metadata_replication.yml` is configured with appropriate values for 'scope', 'rse', and 'rse_expression'.
+        Ensure that `metadata_replication.yml` is configured with appropriate values for 'scope',
+        'rse', and 'rse_expression'.
         Run script within the Rucio testing framework.
     """
 
@@ -62,7 +65,6 @@ class MetadataReplication(Task):
         self.tic()
 
         # Assign variables from the metadata_replication.yml kwargs.
-        #
         self.account = kwargs["account"]
         self.scope = kwargs["scope"]
         self.rse = kwargs["rse"]
@@ -92,24 +94,39 @@ class MetadataReplication(Task):
 
         # Create a dataset to house the data, named with today's date and scope <scope>.
         # 
-        # This dataset must be a new dataset otherwise the is_new flag will not be set on the dataset and the transmogrifier daemon will not pick 
-        # it up to be processed.
+        # This dataset must be a new dataset otherwise the is_new flag will not be set on the
+        # dataset and the transmogrifier daemon will not pick it up to be processed.
         #
-        # The alternative is to use the subscription reevaluate command, but then all files in the dataset will be reevaluated against the 
-        # subscriptions, which may not be desirable for a test.
+        # The alternative is to use the subscription reevaluate command, but then all files in
+        # the dataset will be reevaluated against the subscriptions, which may not be desirable
+        # for a test.
         #
-        datasetDID = createCollection(self.logger.name, self.scope, "{}_{}".format(self.datasetName, datetime.now().strftime("%d%m%yT%H.%M.%S")))
+        datasetDID = createCollection(
+            self.logger.name,
+            self.scope,
+            "{}_{}".format(self.datasetName, datetime.now().strftime("%d%m%yT%H.%M.%S"))
+        )
         if not datasetDID:
             return False
         dataset_name = datasetDID.split(':')[1]
 
-        # Set metadata on dataset in bulk
+        # Set metadata on dataset
         #
         try:
-            self.logger.debug(f"{bcolors.OKBLUE}Setting metadata: {self.fixedMetadata} for dataset {dataset_name} at scope {self.scope}{bcolors.ENDC}")
+            self.logger.debug(
+                bcolors.OKBLUE + 
+                "Setting metadata: {} for dataset {} at scope {}".format(
+                    self.fixedMetadata, dataset_name, self.scope
+                ) +
+                bcolors.ENDC
+            )
             did_client.set_metadata_bulk(self.scope, dataset_name, self.fixedMetadata)
         except Exception as e:
-            self.logger.critical(f"{bcolors.FAIL}Failed to set metadata: {str(e)}{bcolors.ENDC}")
+            self.logger.critical(
+                bcolors.FAIL +
+                "Failed to set metadata: {}".format(str(e)) +
+                bcolors.ENDC
+            )
             return False
 
         # Generate a sample file, prepare metadata, upload file, and attach dataset
@@ -123,34 +140,63 @@ class MetadataReplication(Task):
             "lifetime": self.lifetime,
             "register_after_upload": True
         }]
+
         try:
             upl_start = time.time()
             upload_client.upload(items=items)
             attachment = {
                 "scope": self.scope,
-                "name": datasetDID.split(":")[1],
-                "dids": [{"scope": self.scope, "name": os.path.basename(f.name)}]
+                "name": dataset_name,
+                "dids": [{"scope": self.scope, "name": file_name}]
             }
+            self.logger.info(
+                bcolors.OKBLUE +
+                "Attaching scope {}, file {}, to dataset: {}".format(
+                    self.scope,
+                    file_name,
+                    dataset_name
+                ) +
+                bcolors.ENDC
+            )
             did_client.attach_dids_to_dids(attachments=[attachment])
+            
+            # Verify attachment succeeded:
+            files = did_client.list_files(self.scope, dataset_name)
+            if len(list(files)) < 1:
+                raise Exception("No files attached to dataset {}".format(dataset_name))
+            
             upl_duration = round(time.time() - upl_start)
-            self.logger.info(f"{bcolors.OKGREEN}Upload complete in {upl_duration}s{bcolors.ENDC}")
+            self.logger.info(
+                bcolors.OKGREEN +
+                "Upload complete in {}s".format(upl_duration) +
+                bcolors.ENDC
+            )
             os.remove(f.name)
         except Exception as e:
-            # Cannot continue with this test if upload fails
-            self.logger.critical("Upload failed: {}".format(e))
+            # Cannot continue with this test if upload/attachment fails
+            self.logger.critical(
+                bcolors.FAIL + 
+                "Upload/attachment failed: {}".format(str(e)) +
+                bcolors.ENDC
+            )
             os.remove(f.name)
             return False
 
         # Update or create subscription
+        # If no subscriptions exist for user, list_subscriptions will raise a SubscriptionNotFound
         #
-        # If no subscriptions exist for user, list_subscriptions will return SubscriptionNotFound:
         try:
             existing_subs = list(subscription_client.list_subscriptions(account=self.account))
         except SubscriptionNotFound:
             existing_subs = []
         except Exception as e:
-            self.logger.critical(f"{bcolors.FAIL}Error when listing subscriptions: {str(e)}{bcolors.ENDC}")
+            self.logger.critical(
+                bcolors.FAIL +
+                "Error when listing subscriptions: {}".format(str(e)) +
+                bcolors.ENDC
+            )
             return False
+
         subscription_exists = any(sub['name'] == self.subscriptionName for sub in existing_subs)
         subscription_data = {
             'filter_': self.filters,
@@ -165,23 +211,42 @@ class MetadataReplication(Task):
             if subscription_exists:
                 # Update an existing subscription
                 #
-                self.logger.info(f"{bcolors.OKBLUE}Subscription {self.subscriptionName} exists, so updating it with {subscription_data}.{bcolors.ENDC}")
-                subscription_client.update_subscription(self.subscriptionName, account=self.account, **subscription_data)
+                self.logger.info(
+                    bcolors.OKBLUE + 
+                    "Subscription {} exists, ".format(self.subscriptionName) + 
+                    "so updating it with {}.".format(subscription_data) +
+                    bcolors.ENDC
+                )
+                subscription_client.update_subscription(
+                    self.subscriptionName,
+                    account=self.account,
+                    **subscription_data
+                )
             else:
                 # Create a new subscription
                 #
-                self.logger.info(f"{bcolors.OKGREEN}Creating new subscription: {self.subscriptionName} with {subscription_data}.{bcolors.ENDC}")
-                subscription_client.add_subscription(self.subscriptionName, account=self.account, **subscription_data)
+                self.logger.info(
+                    bcolors.OKGREEN +
+                    "Creating new subscription: {} with {}.".format(
+                        self.subscriptionName,
+                        subscription_data
+                    ) +
+                    bcolors.ENDC
+                )
+                subscription_client.add_subscription(
+                    self.subscriptionName, account=self.account, **subscription_data
+                )
         except Exception as e:
-            self.logger.critical(f"{bcolors.FAIL}Failed to update or create subscription: {str(e)}{bcolors.ENDC}")
+            self.logger.critical(
+                bcolors.FAIL +
+                "Failed to update or create subscription: {}".format(str(e)) +
+                bcolors.ENDC
+            )
             return False
 
-        # Check for replicas and prepare data for elasticsearch
+        # Prepare data for elasticsearch
         #
-        start_time = time.time()
-
-        # Initialise the dictionary of variables
-        data_for_grafana = {
+        es_entry = {
             "@timestamp": datetime.now().isoformat(),
             "subscription_name": self.subscriptionName,
             "dataset_id": datasetDID,
@@ -191,53 +256,100 @@ class MetadataReplication(Task):
         }
 
         # Verify replication rules have been set correctly
+        #
+        start_time = time.time()
         while time.time() - start_time < self.timeout:
-            found_rules = list(rule_client.list_replication_rules({'scope': self.scope, 'name': dataset_name}))
+            try:
+                found_rules = list(rule_client.list_replication_rules(
+                    {'scope': self.scope, 'name': dataset_name}
+                ))
+            except Exception as e:
+                self.logger.critical(
+                    bcolors.FAIL +
+                    "Failed to list replication rules: {}".format(str(e)) +
+                    bcolors.ENDC
+                )
+                return False
 
             if matchRules(self.logger.name, self.replicationRules, found_rules):
-                self.logger.info(f"{bcolors.OKGREEN}All replication rules created successfully.{bcolors.ENDC}")
-                data_for_grafana.update({
+                self.logger.info(
+                    bcolors.OKGREEN +
+                    "All replication rules created successfully." +
+                    bcolors.ENDC
+                )
+                es_entry.update({
                     "rules_status": "Success",
                     "replicated_rse": ', '.join(rule['rse_expression'] for rule in found_rules),
                     "state": ', '.join(rule['state'] for rule in found_rules)
                 })
                 break
             else:
-                self.logger.info(f"Waiting for replication rules to be created...")
+                self.logger.info("Waiting for replication rules to be created...")
                 time.sleep(self.delay_s)
         else:
-            self.logger.error(f"{bcolors.FAIL}Timeout reached without detecting expected replica rules.{bcolors.ENDC}")                
+            self.logger.error(
+                bcolors.FAIL +
+                "Timeout reached without detecting expected replica rules.{}" +
+                bcolors.ENDC
+            )
 
-        # Check the replicas
+        # Check the replicas - we only expect one file within the dataset
+        #
         while time.time() - start_time < self.timeout:
-            replicas = list(replica_client.list_replicas([{'scope': self.scope, 'name': dataset_name}]))
-            if replicas:
-                latest_replica = replicas[-1]
-                formatted_latest_replica = f"File: {latest_replica['name']} | Size: {latest_replica['bytes']} bytes | RSEs: {', '.join(latest_replica['rses'].keys())}"
-                self.logger.info(f"{bcolors.OKGREEN}Latest replica for {datasetDID}:\n{bcolors.BOLD}{formatted_latest_replica}{bcolors.ENDC}")
-                data_for_grafana.update({
+            try:
+                replicas = list(replica_client.list_replicas(
+                    [{'scope': self.scope, 'name': dataset_name}]
+                ))
+                file_replica = replicas[-1]
+            except Exception as e:
+                self.logger.critical(
+                    bcolors.FAIL +
+                    "Failed to list replicas: {}".format(str(e)) +
+                    bcolors.ENDC
+                )
+                return False
+            
+            # Expect one replica at the intial RSE + one for each of the replication rules
+            #
+            exp_replica_count = 1 + len(self.replicationRules)
+            if len(file_replica["pfns"]) == exp_replica_count:
+                self.logger.info(
+                    bcolors.OKGREEN +
+                    "File {} found at RSEs: {}".format(
+                        file_replica['name'], ', '.join(file_replica['rses'].keys())) +
+                    bcolors.ENDC
+                )
+                es_entry.update({
                     "replica_status": "Success",
-                    "file_name": latest_replica['name'],
-                    "file_size": latest_replica['bytes'],
-                    "rse": ', '.join(latest_replica['rses'].keys()),
+                    "file_name": file_replica['name'],
+                    "file_size": file_replica['bytes'],
+                    "rse": ', '.join(file_replica['rses'].keys()),
                 })
                 break
+            self.logger.info("Waiting for replicas...")
             time.sleep(self.delay_s)
         else:
-            self.logger.error(f"{bcolors.FAIL}Timeout reached without detecting replicas.{bcolors.ENDC}")
+            self.logger.error(
+                bcolors.FAIL +
+                "Timeout reached without detecting expected number of replicas." +
+                bcolors.ENDC
+            )
 
         # Push task output to databases.
         #
-        self.logger.info(f"{bcolors.OKBLUE}Sending the following to Elasticsearch: {data_for_grafana}{bcolors.ENDC}")
+        self.logger.info(
+            bcolors.OKBLUE +
+            "Sending the following to Elasticsearch: {}".format(es_entry) +
+            bcolors.ENDC
+        )
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database...")
                     es = Elasticsearch([database['uri']])
-                    es.index(index=database["index"], id=data_for_grafana['file_name'], body=data_for_grafana)
+                    es.index(index=database["index"], id=es_entry['file_name'], body=es_entry)
 
         self.toc()
-        self.logger.info(f"{bcolors.OKGREEN}Finished in {round(self.elapsed)}s{bcolors.ENDC}")
-
-        return data_for_grafana
-
+        self.logger.info(
+            bcolors.OKGREEN + "Finished in {}s".format(round(self.elapsed)) + bcolors.ENDC
+        )
