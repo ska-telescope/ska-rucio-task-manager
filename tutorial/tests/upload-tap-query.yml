@@ -1,0 +1,35 @@
+test-rucio-upload-tap-query:
+  description: "Rucio FITS upload, add metadata, TAP query test"
+  module_name: "tasks.tests.upload_tap_query"
+  class_name: "UploadTAPQuery"
+  enabled: true
+  args:
+  kwargs:
+    # Rucio
+    rse: "STFC_STORM"
+    scope: "aussrc.testing"
+    lifetime: 600
+
+    # Generated fits file
+    filename: "rucio_upload_tap_query_test.fits"
+    fits_header: {
+      'SIMPLE': 'T',
+      'TELESCOP': 'SKA'
+    }
+    nx: 100
+    ny: 100
+    nz: 3
+
+    # Metadata
+    rucio_metadata: {
+      'calib_level': 0,
+      'obs_collection': 'aussrc_tap_query_test',
+      'dataproduct_type': 'cube',
+      'obs_title': 'SKA SRCNet Rucio Test',
+      'access_url': 'https://ivoa.datalink.srcdev.skao.int/rucio/links?id=',
+      'access_format': 'application/x-votable+xml;content=datalink'
+    }
+
+    # TAP
+    tap_url: "https://ivoa.dachs.srcdev.skao.int/__system__/tap/run"
+    tap_query: "SELECT * FROM rucio.obscore WHERE obs_collection='$OBS_COLLECTION'"
