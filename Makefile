@@ -3,11 +3,11 @@
 
 BASE_RUCIO_CLIENT_TAG:=`cat BASE_RUCIO_CLIENT_TAG`
 
-rucio:
+build-base:
 	@docker build . -f Dockerfile --build-arg BASE_RUCIO_CLIENT_IMAGE=rucio/rucio-clients \
 	--build-arg BASE_RUCIO_CLIENT_TAG=$(BASE_RUCIO_CLIENT_TAG) --tag rucio-task-manager:$(BASE_RUCIO_CLIENT_TAG)
 
-skao:
+build-skao:
 	@docker build . -f Dockerfile \
-	--build-arg BASE_RUCIO_CLIENT_IMAGE=registry.gitlab.com/ska-telescope/src/ska-rucio-client \
+	--build-arg BASE_RUCIO_CLIENT_IMAGE=registry.gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-client \
 	--build-arg BASE_RUCIO_CLIENT_TAG=$(BASE_RUCIO_CLIENT_TAG) --tag rucio-task-manager:$(BASE_RUCIO_CLIENT_TAG)
