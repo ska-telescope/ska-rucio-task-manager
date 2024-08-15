@@ -1,13 +1,13 @@
-# SKA Rucio Task Manager
+# Rucio Task Manager
 
 [[_TOC_]]
 
 A modular and extensible framework for performing tasks on a Rucio datalake.
 
-## Quickstart development (On the SKAO prototype datalake using OIDC)
+## Quickstart development (On the SKAO prototype datalake using an OIDC access token)
 
 1. Review the [architecture](#architecture) section
-2. Build the image: `make skao`
+2. Build the image: `make build-skao`
 3. [Get a datalake access token](#using-the-rucio-client)
 4. Export the required environment variables for OIDC authentication using an access token: 
    - `RUCIO_CFG_ACCOUNT=<account>`, 
@@ -21,8 +21,9 @@ A modular and extensible framework for performing tasks on a Rucio datalake.
 Fundamentally, this framework is a task scheduler with Rucio authentication built in. A **task** is defined as any 
 operation or sequence of operations that can be performed on the datalake.
 
-Within this framework, a task comprises two parts: _logic_ and _definition_. Task logic is code and should be sufficiently 
-abstracted & parameterised to allow for easy re-use and chaining of tasks.
+Within this framework, a task comprises two parts: _logic_ and _definition_. Task logic is the code; when writing the
+logic, consideration should be given to abstract and parameterise sufficiently enough to allow for easy re-use and 
+chaining of tasks.
 
 The source for task logic is kept in `src`:
 
@@ -48,12 +49,11 @@ one of:
 
 But other categories may be added as needed.
 
-Task definitions are written in yaml and can be stored in `etc`:
+Task definitions contain fields to specify the task logic module to be used and any required corresponding arguments. 
+They are written in yaml and should be stored in `etc`:
 
 ```
   └── etc
-      ├── helm
-      ├── docker
       └── tasks
          └── <deployment>
             └── probes
@@ -62,13 +62,12 @@ Task definitions are written in yaml and can be stored in `etc`:
             └── tests
 ```
 
-Each definition contains fields to specify the task logic module to be used and any required corresponding arguments. 
 The structure of `etc/tasks` takes the following format: `<deployment>/<task_type>/<task_name>.yml` where `deployment` 
-is a identifier for the datalake that the task will be deployed to.
+is an identifier for the datalake that the task will be deployed to.
 
-A Helm chart for deployment to a kubernetes cluster is kept in `etc/helm`. **For deployments via Helm, task definitions 
-must be specified separately in the `values.yaml` file.** If deploying by Argo, you will need to bump the chart version
-and specify the `targetRevision` in the corresponding argo `applicationset`.
+For deployments via Helm, task definitions can instead be specified inline in the chart's `values.yaml` file by 
+populating `cronjobs.[].task_file_yaml` rather than `cronjobs.[].task_file_path`. This enables changing the task manager 
+deployment more easily by CI/CD.
 
 ## Usage
 
@@ -78,18 +77,18 @@ This framework is designed to be run in a dockerised environment.
 
 Images should be built off a preexisting dockerised Rucio client image. This image could be the Rucio base 
 provided by the Rucio maintainers (https://github.com/rucio/containers/tree/master/clients), included in the root 
-`Makefile` as target "rucio", or an extended image built off this. Extended client images are used to encapsulate the 
-prerequisite certificate bundles, VOMS setup (if x509) and Rucio template configs for a specific datalake.
+`Makefile` as target "build-base", or an extended image built off this. Extended client images are used to encapsulate 
+the prerequisite certificate bundles, VOMS setup (if x509) and Rucio template configs for a specific datalake.
 
-**Extended images already exist for the prototype skao datalake as the Makefile target `skao`**. Builds for other 
+**Extended images already exist for the prototype SKAO datalake as the Makefile target `build-skao`**. Builds for other 
 datalake instances can be enabled by adding a new `docker build` routine as a new target in the root `Makefile` with 
 the corresponding build arguments for the base client image and tag.
 
 Unless the task manager code is being mounted as a volume inside the container, as shown in the examples below, the 
-image will need to be rebuilt when a change is made to either the logic or definition, e.g. for skao images:
+image will need to be rebuilt whenever a change is made to either the logic or definition, e.g. for the SKAO image:
 
 ```bash
-eng@ubuntu:~/rucio-task-manager$ make skao
+make build-skao
 ```
 
 ### Required environment variables
@@ -134,21 +133,34 @@ but the key/certificate **must be volume mounted to these locations**.
 
 #### For authentication by OpenID Connect (OIDC)
 
-For "oidc" authentication, it is possible to supply the necessary credentials via two methods.
+For "oidc" authentication, it is possible to supply the necessary credentials via four methods:
 
-##### Using an access token
+1. By setting up a volume mount pointing to a valid token,
+2. Using a service client than can obtain a token when required via the client_credentials grant, 
+3. By passing in an encoded oidc-agent session with included refresh token, or 
+4. By passing in a valid access token directly
 
-The first (and easiest) method assumes that the user already has a valid access token:
+The order of precedence for which of these routes is selected is as numbered above.
 
-- **OIDC_ACCESS_TOKEN**: an encrypted oidc-agent client with refresh token
+##### By mounting a valid access token
 
-To get an access token, refer to `Development > Getting started (OIDC) > Getting an access token`.
+It is possible to volume mount a valid access token to `/tmp/access_token`.
 
-This method is advised for general development use.
+To get an access token, refer to the developer section on [getting an access token](#getting-an-access-token).
 
-##### Using an oidc-agent configuration
+##### By using a service client to obtain a token via a client_credentials grant
 
-The second method requires that the user has a client configuration generated by the 
+To obtain a token via a client_credentials grant against a service client, set:
+
+- **OIDC_CLIENT_ID**: The service client id 
+- **OIDC_CLIENT_SECRET**: The service client secret
+- **OIDC_TOKEN_ENDPOINT**: The IAM token endpoint
+
+This method can be used for asynchronous cronjobs where a token needs to be retrieved at run-time.
+
+##### By passing an oidc-agent configuration
+
+This method requires that the user has a client configuration generated by the 
 [https://github.com/indigo-dc/oidc-agent](oidc-agent) tool. This client should have a refresh token attached to it in 
 order that access tokens can be generated when required. The encrypted oidc-agent client configuration and password 
 are stored in environment variables as plaintext:
@@ -161,7 +173,15 @@ Depending on whether they are already set in the image's baked-in `rucio.cfg`, t
 - **RUCIO_CFG_OIDC_SCOPE**: list of OIDC scopes
 - **RUCIO_CFG_OIDC_AUDIENCE**: list of OIDC audiences
 
-This method is useful for asynchronous cronjobs where a token needs to be retrieved at run-time.
+This method can be used for asynchronous cronjobs where a token needs to be retrieved at run-time.
+
+##### By passing a valid access token directly
+
+For this method, set:
+
+**OIDC_ACCESS_TOKEN**: the access token
+
+To get an access token, refer to the developer section on [getting an access token](#getting-an-access-token).
 
 ### Examples
 
@@ -171,7 +191,7 @@ explicitly supplied, they will be taken from the `rucio.cfg`.
 #### userpass
 
 ```bash
-eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
+docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=userpass \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
@@ -180,7 +200,7 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
 ```
 
-For development purposes, it is possible to mount the package from the host directly into the container provided you 
+For development purposes, it can be helpful to mount the package from the host directly into the container provided you 
 have exported the project's root directory path as `RUCIO_TASK_MANAGER_ROOT`, e.g.:
 
 ```bash
@@ -201,7 +221,7 @@ With this, it is not required to rebuild the image everytime it is run.
 ##### By passing in key/certificate values as plaintext
 
 ```bash
-eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
+docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=x509 \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e RUCIO_CFG_CLIENT_CERT_VALUE="`cat $RUCIO_CFG_CLIENT_CERT`" \
@@ -218,7 +238,7 @@ For X.509 authentication with Rucio via paths you must bind the certificate cred
 container, e.g.:
 
 ```bash
-eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
+docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=x509 \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e RUCIO_CFG_CLIENT_CERT=/opt/rucio/etc/client.crt \
@@ -233,13 +253,17 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 
 #### oidc
 
-##### By passing in an access token
+##### By using a service client to obtain a token via a client_credentials grant
 
 ```bash
-eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
+docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=oidc \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
--e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
+-e OIDC_CLIENT_ID=<client_id> \
+-e OIDC_CLIENT_SECRET=<client_secret> \
+-e OIDC_TOKEN_ENDPOINT=<iam_token_endpoint> \
+-e RUCIO_CFG_OIDC_SCOPE="openid profile offline_access rucio" \
+-e RUCIO_CFG_OIDC_AUDIENCE="rucio https://wlcg.cern.ch/jwt/v1/any" \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
 --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
@@ -248,11 +272,23 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 ##### By passing in an oidc-agent client configuration
 
 ```bash
-eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
+docker run --rm -it \
 -e RUCIO_CFG_AUTH_TYPE=oidc \
 -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_VALUE="`cat ~/.oidc-agent/<client_name>`" \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD=$OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD \
+-e TASK_FILE_PATH=etc/tasks/stubs.yml \
+-v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
+--name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
+```
+
+##### By passing in a valid access token
+
+```bash
+docker run --rm -it \
+-e RUCIO_CFG_AUTH_TYPE=oidc \
+-e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
 --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
@@ -265,12 +301,12 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 Deployment in a kubernetes cluster is managed by Helm. 
 
 A rucio-task-manager image must first be built, tagged and pushed to a location accessible to the cluster, e.g. for 
-SKAO's gitlab:
+SKAO's harbor:
 
 ```bash
-eng@ubuntu:~/rucio-task-manager$ make skao
-eng@ubuntu:~/rucio-task-manager$ docker tag rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG` registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/rucio-task-manager-client:latest
-eng@ubuntu:~/rucio-task-manager$ docker push registry.gitlab.com/ska-telescope/src/ska-rucio-prototype/rucio-task-manager-client:latest
+make skao
+docker tag rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG` registry.gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-task-manager:latest
+docker push registry.gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-task-manager:latest
 ```
 
 As per the standard procedure for Helm, the task values in `etc/helm/values.yaml` can be adjusted as required. 
@@ -280,8 +316,8 @@ e.g.
 
 ```yaml
 config:
-  RUCIO_CFG_RUCIO_HOST: https://srcdev.skatelescope.org/rucio-dev
-  RUCIO_CFG_AUTH_HOST: https://srcdev.skatelescope.org/rucio-dev
+  RUCIO_CFG_RUCIO_HOST: https://rucio.srcdev.skao.int
+  RUCIO_CFG_AUTH_HOST: https://rucio.srcdev.skao.int
 ```
 
 Secrets such as certificates and keys that are created on the cluster, e.g. 
@@ -430,7 +466,7 @@ The procedure for creating a new tests is as follows:
    - `enabled`.
 4. To run the new test locally, build and run the container image as described in more detail above:
     ```
-    $ make skao
+    $ make build-skao
     $ docker run --rm -it \
       -e RUCIO_CFG_AUTH_TYPE=oidc \
       -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \

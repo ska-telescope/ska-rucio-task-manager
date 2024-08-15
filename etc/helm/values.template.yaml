@@ -1,21 +1,31 @@
 image:
-  repository: registry.gitlab.com/ska-telescope/src/ska-rucio-task-manager
-  tag: release-1.29.0
+  repository: registry.gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-task-manager
+  tag: release-1.29.6
   pullPolicy: Always
 
 deployment:
   namespace: rucio-task-manager
 
 config:
-  RUCIO_CFG_RUCIO_HOST: https://srcdev.skatelescope.org/rucio-dev
-  RUCIO_CFG_AUTH_HOST: https://srcdev.skatelescope.org/rucio-dev
+  RUCIO_CFG_RUCIO_HOST: https://rucio.srcdev.skao.int
+  RUCIO_CFG_AUTH_HOST: https://rucio.srcdev.skao.int
   RUCIO_CFG_ACCOUNT: robbarnsley
   RUCIO_CFG_AUTH_TYPE: oidc
   RUCIO_CFG_USERNAME:
   RUCIO_CFG_PASSWORD:
-  VOMS: skatelescope.eu
+  VOMS:
+  OIDC_TOKEN_ENDPOINT:
 
 secrets:
+  - name: OIDC_CLIENT_ID
+    fromSecretName: oidc-service-client
+    fromSecretKey: id
+  - name: OIDC_CLIENT_SECRET
+    fromSecretName: oidc-service-client
+    fromSecretKey: secret
+  - name: OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD
+    fromSecretName: oidc-agent-auth-client
+    fromSecretKey: password
   - name: OIDC_AGENT_AUTH_CLIENT_CFG_VALUE
     fromSecretName: oidc-agent-auth-client
     fromSecretKey: cfg
