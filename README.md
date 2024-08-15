@@ -6,15 +6,15 @@ A modular and extensible framework for performing tasks on a Rucio datalake.
 
 ## Quickstart development (On the SKAO prototype datalake using an OIDC access token)
 
-1. Review the [architecture](#architecture) section
-2. Build the image: `make build-skao`
-3. [Get a datalake access token](#using-the-rucio-client)
-4. Export the required environment variables for OIDC authentication using an access token: 
-   - `RUCIO_CFG_ACCOUNT=<account>`, 
-   - `RUCIO_CFG_AUTH_TYPE=oidc`,
-   - `RUCIO_TASK_MANAGER_ROOT=/path/to/task/manager/root`,
-   - `OIDC_ACCESS_TOKEN=<token>`
-5. [Run it](#by-passing-in-an-access-token)
+1. Review at least the [architecture](#architecture) section of this documentation!
+2. Source the `tools/setup_environment.sh` script from within the `tools` directory:
+   ```bash
+   ska-src-dm-da-rucio-task-manager/tools$ . setup_environment_for_skao.sh
+   ```
+3. Run the `run-task` function for the required task, e.g. for the stubs:
+   ```bash
+   ska-src-dm-da-rucio-task-manager$ run-task etc/tasks/stubs.yml
+   ```
 
 ## Architecture
 
