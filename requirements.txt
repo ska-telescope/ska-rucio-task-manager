@@ -7,7 +7,7 @@ numpy
 python-crontab
 pyyaml
 rucio-clients
-ska-src-ingestion
+ingestor
 slackclient
 uuid
 astropy

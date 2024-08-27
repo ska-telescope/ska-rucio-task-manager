@@ -2,7 +2,7 @@ test-upload-dev:
   description: "Test uploading via different protocols to RSEs."
   module_name: "tasks.tests.upload"
   class_name: "TestUpload"
-  enabled: false
+  enabled: true
   args:
   kwargs:
     n_files: 1
@@ -12,12 +12,6 @@ test-upload-dev:
     protocols:
       - https
     rses:
-      - SPSRC_STORM
-      - JPSRC_STORM
-      - IMPERIAL
-      - CNSRC_STORM
-      - CNAF
-      - AUSSRC_STORM
       - STFC_STORM
     scope: testing
     output:

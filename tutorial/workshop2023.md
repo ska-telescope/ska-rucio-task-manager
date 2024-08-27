@@ -25,7 +25,7 @@ Presentation: https://docs.google.com/presentation/d/1I8rRuxbUcjQTbvp2wipy7m7nS9
 
 # Post workshop notes
 
-- Issues around Docker (make sure user is either in correct group or sudo is used anytime a docker command is issued in the setup_environment script)
+- Issues around Docker (make sure user is either in correct group or sudo is used anytime a docker command is issued in the setup_environment_for_skao script)
 - Always `docker pull` the latest version of the client image before setting up the environment (host domains may have changed in the rucio-client)
 - Building the image itself can take ~10min!
 

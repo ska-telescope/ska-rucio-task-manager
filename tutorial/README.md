@@ -25,16 +25,15 @@ In addition, you will need:
 Clone the ska-rucio-task-manager repository: 
 
 ```bash
-eng@ubuntu:~/SKAO$ git clone https://gitlab.com/ska-telescope/src/ska-rucio-task-manager.git
+eng@ubuntu:~/SKAO$ git clone https://gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-task-manager.git
 ```
 
 ## Running the stub task
 
-First, set up your environment by cd'ing into the tutorial/scripts directory and sourcing the `setup_environment` script from within this directory (required as relative paths are used):
+First, set up your environment by cd'ing into the `tools` directory and sourcing the `setup_environment_for_skao` script from within this directory (required as relative paths are used):
 
 ```bash
-eng@ubuntu:~$ cd SKAO/ska-rucio-task-manager/tutorial/scripts
-eng@ubuntu:~/SKAO/ska-rucio-task-manager/tutorial/scripts$ . setup_environment.sh
+eng@ubuntu:~/SKAO/ska-rucio-task-manager/tools$ . setup_environment_for_skao.sh
 ```
 
 NB: remember to add yourself to docker group if you encounter the permission issue, just using the command `sudo usermod -aG docker ${USER}; sudo systemctl restart docker`
