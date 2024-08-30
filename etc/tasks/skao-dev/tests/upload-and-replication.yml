@@ -14,10 +14,11 @@ test-upload-dev:
     rses:
       - STFC_STORM
     scope: testing
+    file_paths:
     output:
       databases:
         - type: es
-          uri: https://monit.srcdev.skao.int/elastic
+          uri: https://monit.srcdev.skao.int:443/elastic
           index: rucio-task-manager.skao-dev.tasks.tests.upload
 
 test-upload-replication-dev:
@@ -46,3 +47,24 @@ test-upload-replication-dev:
         - type: es
           uri: https://monit.srcdev.skao.int/elastic
           index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+
+test-upload-specific-file:
+  description: "Large data upload to CASRC"
+  module_name: "tasks.tests.upload"
+  class_name: "TestUpload"
+  enabled: false
+  args:
+  kwargs:
+    lifetime: 604800 # seconds
+    protocols:
+      - https
+    rses:
+      - CASRC_XRD
+    scope: aussrc.testing
+    file_paths:
+      - /data/HydraMilkyWay/Hydra_MilkyWay.fits
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-specific-file

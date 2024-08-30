@@ -5,9 +5,9 @@ test-upload-size-limit:
   enabled: true
   args:
   kwargs:
-    rse: "STFC_STORM"
-    scope: "aussrc.testing"
+    rse: STFC_STORM
+    scope: aussrc.testing
     lifetime: 600
-    min_size: 100000
-    max_size: 1000000000
+    min_size: 100
+    max_size: 10000
     factor: 10

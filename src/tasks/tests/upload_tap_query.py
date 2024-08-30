@@ -12,7 +12,7 @@ from tasks.task import Task
 
 
 class UploadTAPQuery(Task):
-    """ Rucio API test class stub. """
+    """ Upload dummy FITS file with mock metadata and then test querying for this via TAP """
 
     def __init__(self, logger):
         super().__init__(logger)
@@ -54,7 +54,6 @@ class UploadTAPQuery(Task):
             self.logger.critical(repr(e))
             return False
 
-        # START ---------------
         self.did = f'{self.scope}:{self.filename}'
 
         # Create fits file
@@ -114,13 +113,19 @@ class UploadTAPQuery(Task):
             return
 
         # Perform query
-        self.tap_query = self.tap_query.replace('$OBS_COLLECTION', self.rucio_metadata['obs_collection'])
-        self.logger.info(f'TAP query: {self.tap_query}')
-        start = time.time()
-        tap = TapPlus(url=self.tap_url, verbose=False)
-        job = tap.launch_job(self.tap_query)
-        results = job.get_results()
-        self.logger.info(f'Query results: {results}')
+        try:
+            self.tap_query = self.tap_query.replace('$OBS_COLLECTION', self.rucio_metadata['obs_collection'])
+            self.logger.info(f'TAP query: {self.tap_query}')
+            start = time.time()
+            tap = TapPlus(url=self.tap_url, verbose=False)
+            job = tap.launch_job(self.tap_query)
+            results = job.get_results()
+            self.logger.info(f'Query results: {results}')
+        except Exception as e:
+            self.logger.critical("Error encountered when issuing TAP query: {}".format(e))
+            if os.path.exists(self.filename):
+                os.remove(self.filename)
+            return False
 
         # Verify file exists
         assert self.did in results['obs_id'], f'Did not find file with DID {self.did} in TAP query.'
@@ -131,6 +136,5 @@ class UploadTAPQuery(Task):
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
-        # END ---------------
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))

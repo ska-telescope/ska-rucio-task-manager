@@ -1,23 +1,22 @@
-from datetime import datetime
-import os
-import time
 import base64
-
-from rucio.client.uploadclient import UploadClient
-from rucio.client.didclient import DIDClient
-
+import os
 import random
 import string
+import time
+from datetime import datetime
+
 import numpy as np
 from astropy.io import fits
-from tasks.task import Task
+from rucio.client.didclient import DIDClient
+from rucio.client.uploadclient import UploadClient
 
+from tasks.task import Task
 
 FILENAME_LENGTH = 10
 
 
 class UploadSizeLimit(Task):
-    """ Rucio API test class stub. """
+    """ Upload dummy fits files of increasing sizes to search for failure limits. """
 
     def __init__(self, logger):
         super().__init__(logger)
@@ -57,7 +56,6 @@ class UploadSizeLimit(Task):
             self.logger.critical(repr(e))
             return False
 
-        # START ---------------
         self.logger.info("Starting tests for rucio upload file size limit")
         array_size = self.min_size
 
@@ -92,6 +90,5 @@ class UploadSizeLimit(Task):
                     os.remove(filename)
                 return
 
-        # END ---------------
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))

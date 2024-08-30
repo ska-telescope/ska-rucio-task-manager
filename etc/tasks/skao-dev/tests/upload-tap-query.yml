@@ -1,4 +1,4 @@
-test-rucio-upload-tap-query:
+test-upload-tap-query:
   description: "Rucio FITS upload, add metadata, TAP query test"
   module_name: "tasks.tests.upload_tap_query"
   class_name: "UploadTAPQuery"
@@ -6,12 +6,12 @@ test-rucio-upload-tap-query:
   args:
   kwargs:
     # Rucio
-    rse: "STFC_STORM"
-    scope: "aussrc.testing"
+    rse: STFC_STORM
+    scope: testing
     lifetime: 600
 
     # Generated fits file
-    filename: "rucio_upload_tap_query_test.fits"
+    filename: rucio_upload_tap_query_test.fits
     fits_header: {
       'SIMPLE': 'T',
       'TELESCOP': 'SKA'
@@ -31,5 +31,5 @@ test-rucio-upload-tap-query:
     }
 
     # TAP
-    tap_url: "https://ivoa.dachs.srcdev.skao.int/__system__/tap/run"
+    tap_url: https://ivoa.dachs.srcdev.skao.int/__system__/tap/run
     tap_query: "SELECT * FROM rucio.obscore WHERE obs_collection='$OBS_COLLECTION'"
