@@ -3,7 +3,7 @@
 # Setup envvars
 RUCIO_TASK_MANAGER_ROOT=`python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" ../`
 read -e -p "Path to Rucio task manager root (default: $RUCIO_TASK_MANAGER_ROOT): " input
-RUCIO_TASK_MANAGER_ROOT=${input:-$RUCIO_TASK_MANAGER_ROOT} 
+RUCIO_TASK_MANAGER_ROOT=${input:-$RUCIO_TASK_MANAGER_ROOT}
 export RUCIO_TASK_MANAGER_ROOT=$RUCIO_TASK_MANAGER_ROOT
 
 echo "RUCIO_TASK_MANAGER_ROOT set to \"$RUCIO_TASK_MANAGER_ROOT\""
@@ -36,7 +36,8 @@ function run-task () {
 
   echo "Running task at $1"
 
-  docker run --rm -it \
+  docker run -it \
+  -v /home/ubuntu/data:/data \
   -e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
   -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
   -e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
