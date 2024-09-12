@@ -1,0 +1,13 @@
+test-upload-size-limit:
+  description: "Rucio upload size limit"
+  module_name: "tasks.tests.upload_size_limit"
+  class_name: "UploadSizeLimit"
+  enabled: true
+  args:
+  kwargs:
+    rse: STFC_STORM
+    scope: aussrc.testing
+    lifetime: 600
+    min_size: 100
+    max_size: 10000
+    factor: 10
