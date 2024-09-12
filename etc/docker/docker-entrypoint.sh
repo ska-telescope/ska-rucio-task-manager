@@ -57,6 +57,7 @@ then
   then
     echo "proceeding with oidc authentication using existing mounted token..."
     cp "/tmp/access_token" "/tmp/tmp_auth_token_for_account_$RUCIO_CFG_ACCOUNT"
+    export BEARER_TOKEN=`cat /tmp/tmp_auth_token_for_account_$RUCIO_CFG_ACCOUNT`
   elif [ -v OIDC_CLIENT_ID ] && [ -v OIDC_CLIENT_SECRET ] && [ -v OIDC_TOKEN_ENDPOINT ] && [ -v RUCIO_CFG_OIDC_SCOPE ] && \
     [ -v RUCIO_CFG_OIDC_AUDIENCE ] && [ -v RUCIO_CFG_ACCOUNT ]                                                            # if IAM client's credentials have been passed in (i.e. using a service client w/ client_credentials flow)
   then
@@ -64,6 +65,7 @@ then
     curl -s -u "$OIDC_CLIENT_ID:$OIDC_CLIENT_SECRET" -d grant_type=client_credentials -d scope="$RUCIO_CFG_OIDC_SCOPE" \
       -d audience="$RUCIO_CFG_OIDC_AUDIENCE" $OIDC_TOKEN_ENDPOINT \
       | jq -j '.access_token' > "/tmp/tmp_auth_token_for_account_$RUCIO_CFG_ACCOUNT"
+    export BEARER_TOKEN=`cat /tmp/tmp_auth_token_for_account_$RUCIO_CFG_ACCOUNT`
   elif [ -v OIDC_AGENT_AUTH_CLIENT_CFG_VALUE ] && [ -v OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD ] && [ -v RUCIO_CFG_ACCOUNT ]  # if oidc-agent config is being passed in as a value (e.g. from a k8s secret)
   then
     echo "proceeding with oidc authentication via passed oidc-agent values..."
