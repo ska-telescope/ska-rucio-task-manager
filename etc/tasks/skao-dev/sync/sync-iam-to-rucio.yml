@@ -5,20 +5,26 @@ sync-iam-rucio-dev:
     enabled: true
     args:
     kwargs:
-      iam_server_base_url: https://iam-escape.cloud.cnaf.infn.it/
-      client_id: 5313fe03-ad7f-4094-99af-f93d173cebb4
+      oidc_issuer_url: https://ska-iam.stfc.ac.uk/
+      client_id: 05194e43-b356-447f-825f-6377cdaa48a5
       client_secret:
       rucio_user_iam_groups:
-        - escape/ska
+        - services/rucio/roles/user
       rucio_admin_iam_groups:
-        - escape/ska/admins
+        - services/rucio/roles/admin
+      service_accounts:
+        service_chsrc_ingestion:
+          id: 59289c21-4bde-427a-99aa-b73d8dafd1ce
+          email: "someone@somewhere.com"
+        service_skaosrc_rtm:
+          id: c783963c-9472-4aa2-8b93-1b09447a58e9
+          email: "someone@somewhere.com"
       skip_accounts:
         - root
-        - skao-rucio-service-1
       rse_quota: 1000000000000
       dry_run: False
       output:
         databases:
-          - type: es
-            uri: https://monit.srcdev.skao.int/elastic
-            index: rucio-task-manager.skao-dev.tasks.sync.iam-to-rucio
+          #- type: es
+          #  uri: https://monit.srcdev.skao.int/elastic
+          #  index: rucio-task-manager.skao-dev.tasks.sync.iam-to-rucio
