@@ -1,0 +1,161 @@
+test-upload-replication-100kb:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: true
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    sizes:
+      - 100000 # bytes. =0.1mb
+    lifetime: 3600 # seconds
+    rses:
+      #- SPSRC_STORM
+      #- JPSRC_STORM
+      #- IMPERIAL
+      #- CNSRC_STORM
+      #- CNAF
+      #- AUSSRC_STORM
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+
+test-upload-replication-1mb:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: false
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    sizes:
+      - 1000000 # bytes. =1mb
+    lifetime: 3600 # seconds
+    rses:
+      - SPSRC_STORM
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+
+test-upload-replication-1mb-1000files:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: false
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1000
+    sizes:
+      - 1000000 # bytes. =1mb
+    lifetime: 3600 # seconds
+    rses:
+      - SPSRC_STORM
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+
+test-upload-replication-1gb:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: false
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    sizes:
+      - 1000000000 # bytes. = 1gb
+    lifetime: 3600 # seconds
+    rses:
+      #- SPSRC_STORM
+      #- JPSRC_STORM
+      #- IMPERIAL
+      #- CNSRC_STORM
+      #- CNAF
+      #- AUSSRC_STORM
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+
+test-upload-replication-10gb:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: false
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    sizes:
+      - 10000000000 # bytes. = 10gb
+    lifetime: 3600 # seconds
+    rses:
+      - SPSRC_STORM
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+
+test-upload-replication-100gb:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: false
+  args:
+  kwargs:
+    activity: "Functional Test"
+    n_files: 1
+    sizes:
+      - 100000000000 # bytes. = 100gb
+    lifetime: 3600 # seconds
+    rses:
+      - SPSRC_STORM
+      - JPSRC_STORM
+      - IMPERIAL
+      - CNSRC_STORM
+      - CNAF
+      - AUSSRC_STORM
+      - STFC_STORM
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
