@@ -46,7 +46,7 @@ function run-task () {
 
   echo "Running task at $1"
 
-  docker run -it \
+  docker run -it --rm \
   -v /home/ubuntu/data:/data \
   -e RUCIO_CFG_AUTH_TYPE=$RUCIO_CFG_AUTH_TYPE \
   -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
