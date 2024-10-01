@@ -31,4 +31,4 @@ metadata-replication-existing-data:
       databases:
         - type: es
           uri: https://monit.srcdev.skao.int:443/elastic
-          index: rucio_metadata_replication
+          index: rucio_metadata_replication_existing_data
