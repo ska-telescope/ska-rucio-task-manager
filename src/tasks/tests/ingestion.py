@@ -40,6 +40,7 @@ class TestIngestionLocal(Task):
         :param logger: The logger instance to be used for logging.
         """
         self.task_name = None
+        self.collection_name = None
         self.n_files = None
         self.scope = None
         self.lifetime = None
@@ -90,6 +91,7 @@ class TestIngestionLocal(Task):
         self.tic()
         try:
             self.task_name = kwargs["task_name"]
+            self.collection_name = kwargs["collection_name"]
             self.n_files = kwargs["n_files"]
             self.scope = kwargs["scope"]
             self.lifetime = kwargs["lifetime"]
@@ -163,7 +165,8 @@ class TestIngestionLocal(Task):
                 "lifetime": self.lifetime,
                 "meta": getObsCoreMetadataDict(
                     access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
-                        self.scope, file_name)
+                        self.scope, file_name),
+                    collection_name=self.collection_name
                     )
             }
             with open("{}.meta".format(file_path), 'w') as meta_file:
@@ -191,7 +194,8 @@ class TestIngestionLocal(Task):
                         )
                         expected_meta = getObsCoreMetadataDict(
                             access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
-                                self.scope, file_name)
+                                self.scope, file_name), 
+                            collection_name=self.collection_name
                             )
                         if not retrieved_meta == expected_meta:
                             self.logger.critical(
@@ -390,7 +394,8 @@ class TestIngestionRemote(Task):
                         )
                         expected_meta = getObsCoreMetadataDict(
                             access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
-                                self.scope, file_name)
+                                self.scope, file_name),
+                            collection_name=self.collection_name
                             )
                         if not retrieved_meta == expected_meta:
                             self.logger.critical(
