@@ -191,7 +191,7 @@ class TestUpload(Task):
 
         # Calculate total tranfer rates (useful if there are multiple files)
         #
-        total_transfer_rate = total_file_size / total_duration*1000
+        total_transfer_rate = total_file_size / ( total_duration * 1000 )
 
         end_entry = {
             "n_files": len(entries),
