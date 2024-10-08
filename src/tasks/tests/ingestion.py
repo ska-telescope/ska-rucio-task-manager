@@ -90,10 +90,10 @@ class TestIngestionLocal(Task):
         super().run()
         self.tic()
         try:
+            self.obscore_metadata = kwargs["obscore_metadata"] # dictionary of key value pairs
             self.task_name = kwargs["task_name"]
-            self.collection_name = kwargs["collection_name"]
             self.n_files = kwargs["n_files"]
-            self.scope = kwargs["scope"]
+            self.scope = kwargs["obscore_metadata"]["rucio_did_scope"]
             self.lifetime = kwargs["lifetime"]
             self.prefix = kwargs["prefix"]
             self.sizes = kwargs["sizes"]
@@ -164,9 +164,8 @@ class TestIngestionLocal(Task):
                 "namespace": self.scope,
                 "lifetime": self.lifetime,
                 "meta": getObsCoreMetadataDict(
-                    access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
-                        self.scope, file_name),
-                    collection_name=self.collection_name
+                    self.obscore_metadata,
+                    file_name
                     )
             }
             with open("{}.meta".format(file_path), 'w') as meta_file:
@@ -193,9 +192,8 @@ class TestIngestionLocal(Task):
                             plugin="POSTGRES_JSON"
                         )
                         expected_meta = getObsCoreMetadataDict(
-                            access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
-                                self.scope, file_name), 
-                            collection_name=self.collection_name
+                            self.obscore_metadata,
+                            file_name
                             )
                         if not retrieved_meta == expected_meta:
                             self.logger.critical(
@@ -393,9 +391,8 @@ class TestIngestionRemote(Task):
                             plugin="POSTGRES_JSON"
                         )
                         expected_meta = getObsCoreMetadataDict(
-                            access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
-                                self.scope, file_name),
-                            collection_name=self.collection_name
+                            self.obscore_metadata,
+                            file_name
                             )
                         if not retrieved_meta == expected_meta:
                             self.logger.critical(

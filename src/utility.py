@@ -103,13 +103,12 @@ def generateMetadataDict(key_prefix, n_num, n_str, n_obj, n_arr, n_bool, n_null)
     return meta_dict
 
 def getObsCoreMetadataDict(
-        calib_level=0,
-        collection_name="test_collection",
+        obscore_metadata, # dictionary of key-value pairs under obscore_metadata from the ingestion.yml
+        file_name,
         dataproduct_type="test_file",
         obs_title="SKA SRCNet Rucio Test",
-        access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id=",
         access_format="application/x-votable+xml;content=datalink",
-        include_optional=True
+        include_optional=True,
     ):
     """
     Generate a dictionary of metadata comprising data type counts according to the
@@ -117,13 +116,16 @@ def getObsCoreMetadataDict(
     """
 
     obscore_dict = {
-      "calib_level": calib_level,
-      "obs_collection": collection_name,
       "dataproduct_type": dataproduct_type,
       "obs_title": obs_title,
-      "access_url": access_url.format(),
-      "access_format": access_format
+      "access_format": access_format,
+      **obscore_metadata # expand all key-value pairs
     }
+
+    # the "base" access url is set in the yml, but we need to append scope and file name to it now
+    # it would be better to call access_url base_access_url in the yml, but it is a predefined ivoa keyword so changing it here instead
+    obscore_dict["access_url"] = str(obscore_dict["access_url"])+str(obscore_dict["rucio_did_scope"])+":"+str(file_name)
+    
     if include_optional:
         # TODO: Add additional randomly generated obscore keys
         return obscore_dict
