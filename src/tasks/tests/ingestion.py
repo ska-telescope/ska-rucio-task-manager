@@ -3,6 +3,7 @@ import os
 import subprocess
 import time
 from datetime import datetime
+from dateutil import parser
 
 from elasticsearch import Elasticsearch
 from rucio.client.didclient import DIDClient
@@ -256,6 +257,18 @@ class TestIngestionLocal(Task):
             entry["success_rate"] = succeeded / (succeeded + failed)
             entry["is_ingestion_successful"] = 0
 
+        # Calculate transfer_duration
+        #
+        if "succeeded_at" in entry:
+            transfer_duration = parser.parse(entry["succeeded_at"]) - parser.parse(entry["attempted_at"])
+            entry["transfer_duration"] = transfer_duration.total_seconds()
+        elif "failed_at" in entry:
+            transfer_duration = parser.parse(entry["failed_at"]) - parser.parse(entry["attempted_at"])
+            entry["transfer_duration"] = transfer_duration.total_seconds()
+        else:
+            self.logger.critical("No succeeded_at or failed_at values found.")
+            return False
+
         # Push task output to databases.
         #
         if self.outputDatabases is not None:
@@ -454,7 +467,19 @@ class TestIngestionRemote(Task):
             entry["state"] = "INGESTION-FAILED"
             entry["success_rate"] = succeeded / (succeeded + failed)
             entry["is_ingestion_successful"] = 0
-        
+
+        # Calculate transfer_duration
+        #
+        if "succeeded_at" in entry:
+            transfer_duration = parser.parse(entry["succeeded_at"]) - parser.parse(entry["attempted_at"])
+            entry["transfer_duration"] = transfer_duration.total_seconds()
+        elif "failed_at" in entry:
+            transfer_duration = parser.parse(entry["failed_at"]) - parser.parse(entry["attempted_at"])
+            entry["transfer_duration"] = transfer_duration.total_seconds()
+        else:
+            self.logger.critical("No succeeded_at or failed_at values found.")
+            return False
+
         # Push task output to databases.
         #
         if self.outputDatabases is not None:
