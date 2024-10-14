@@ -1,4 +1,5 @@
 import json
+import jsonschema
 import os
 import subprocess
 import time
@@ -26,8 +27,8 @@ class TestIngestionLocal(Task):
         - sizes (array or int): The sizes of the files (bytes) to be created.
         - ingest_dir: The directory where files will be written (staging area monitored
             by ingestion).
-        - metadata_schema (str): The expected metadata JSON schema.
-        - metadata_suffix: The expected metadata file suffix.
+        - ingestion_meta_schema (str): The expected metadata JSON schema.
+        - ingestion_meta_suffix: The expected metadata file suffix.
         - ingestion_backend_name: The name of the ingestion backend to use.
         - ingestion_polling_frequency_s: The frequency at which the ingestion service should poll for new files.
         - ingestion_iteration_batch_size: The number of files that the ingestion service should batch together for 
@@ -47,8 +48,8 @@ class TestIngestionLocal(Task):
         self.prefix = None
         self.sizes = None
         self.ingest_dir = None
-        self.metadata_schema = None
-        self.metadata_suffix = None
+        self.ingestion_meta_schema = None
+        self.ingestion_meta_suffix = None
         self.ingestion_backend_name = None
         self.ingestion_polling_frequency_s = None
         self.ingestion_iteration_batch_size = None
@@ -58,16 +59,13 @@ class TestIngestionLocal(Task):
         self.delay_s = None
         self.outputDatabases = None
 
-    def begin_ingest_service(self, ingest_dir, metadata_schema, metadata_suffix, ingestion_backend_name,
+    def begin_ingest_service(self, ingest_dir, ingestion_meta_schema, ingestion_meta_suffix, ingestion_backend_name,
                              frequency, batch_size, rucio_ingest_rse_name=None, rucio_pfn_basepath=None):
-        # read the metadata schema into a file
-        try:
-            metadata_schema = json.loads(metadata_schema)
-        except Exception as e:
-            self.logger.critica(e)
+        if not isinstance(ingestion_meta_schema, dict):
+            self.logger.critical("Metadata schema is not of type 'dict'")
             return False
-        with open("/tmp/metadata_schema.json", 'w') as f:
-            f.write(json.dumps(metadata_schema))
+        with open("/tmp/ingestion_meta_schema.json", 'w') as f:
+            f.write(json.dumps(ingestion_meta_schema))
 
         # make the ingestion directory
         os.makedirs(ingest_dir, exist_ok=True)
@@ -75,8 +73,8 @@ class TestIngestionLocal(Task):
         cmd = ['srcnet-tools-ingest',
                '--frequency', str(frequency),
                '--batch-size', str(batch_size),
-               '--metadata-schema-path', '/tmp/metadata_schema.json',
-               '--metadata-suffix', metadata_suffix,
+               '--metadata-schema-path', '/tmp/ingestion_meta_schema.json',
+               '--metadata-suffix', ingestion_meta_suffix,
                '--n-processes', "1",
                '--ingestion-backend-name', ingestion_backend_name,
                '--rucio-ingest-rse-name', rucio_ingest_rse_name]
@@ -90,22 +88,22 @@ class TestIngestionLocal(Task):
         super().run()
         self.tic()
         try:
-            self.obscore_metadata = kwargs["obscore_metadata"] # dictionary of key value pairs
             self.task_name = kwargs["task_name"]
             self.n_files = kwargs["n_files"]
-            self.scope = kwargs["obscore_metadata"]["rucio_did_scope"]
+            self.scope = kwargs["scope"]
             self.lifetime = kwargs["lifetime"]
             self.prefix = kwargs["prefix"]
             self.sizes = kwargs["sizes"]
             self.ingest_dir = kwargs["ingest_dir"]
-            self.metadata_schema = kwargs["metadata_schema"]
-            self.metadata_suffix = kwargs["metadata_suffix"]
+            self.ingestion_meta_schema = kwargs.get("ingestion_meta_schema")
+            self.ingestion_meta_suffix = kwargs["ingestion_meta_suffix"]
             self.ingestion_backend_name = kwargs["ingestion_backend_name"]
             self.ingestion_polling_frequency_s = kwargs["ingestion_polling_frequency_s"]
             self.ingestion_iteration_batch_size = kwargs["ingestion_iteration_batch_size"]
             self.rucio_ingest_rse_name = kwargs["rucio_ingest_rse_name"]
             self.n_retries = kwargs["n_retries"]
             self.delay_s = kwargs["delay_s"]
+            self.obscore_metadata = kwargs.get("obscore_metadata", {})
             self.outputDatabases = kwargs["output"]["databases"]
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for test.")
@@ -124,11 +122,31 @@ class TestIngestionLocal(Task):
         else:
             self.logger.critical("File sizes should either be a list or int")
             return False
+        
+        # Open and parse the ingestion metadata
+        if not self.ingestion_meta_schema:
+            with open('etc/schemas/ingestion_metadata.json', 'r') as f:
+                self.ingestion_meta_schema = json.load(f)
+        else:
+            try:
+                self.ingestion_meta_schema = json.loads(self.ingestion_meta_schema)
+            except Exception as e:
+                self.logger.critical(e)
+                return False
+            
+        # Validate ObsCore metadata, using placeholder did_name for now:
+        try:
+            getObsCoreMetadataDict(self.scope, "did_name", **self.obscore_metadata)
+        except Exception as e:
+            # This can fail if e.g. 'rucio_did_scope' or 'rucio_did_name' passed in or
+            # schema validation fails
+            self.logger.warning("Unable to validate ObsCore metadata: {}".format(e))
+            return False
 
         self.logger.info("Starting ingestion engine...")
 
         # Begin the ingest service locally
-        self.begin_ingest_service(self.ingest_dir, self.metadata_schema, self.metadata_suffix,
+        self.begin_ingest_service(self.ingest_dir, self.ingestion_meta_schema, self.ingestion_meta_suffix,
                                   self.ingestion_backend_name, self.ingestion_polling_frequency_s,
                                   self.ingestion_iteration_batch_size, self.rucio_ingest_rse_name,
                                   self.rucio_pfn_basepath)
@@ -164,9 +182,8 @@ class TestIngestionLocal(Task):
                 "namespace": self.scope,
                 "lifetime": self.lifetime,
                 "meta": getObsCoreMetadataDict(
-                    self.obscore_metadata,
-                    file_name
-                    )
+                    self.scope, file_name, **self.obscore_metadata,
+                )
             }
             with open("{}.meta".format(file_path), 'w') as meta_file:
                 json.dump(meta_dict, meta_file, indent=2)
@@ -187,14 +204,11 @@ class TestIngestionLocal(Task):
                         # Test get metadata, since this is set via a separate call
                         # following file ingestion
                         retrieved_meta = did_client.get_metadata(
-                            did["scope"],
-                            did["name"],
-                            plugin="POSTGRES_JSON"
+                            did["scope"], did["name"], plugin="POSTGRES_JSON"
                         )
                         expected_meta = getObsCoreMetadataDict(
-                            self.obscore_metadata,
-                            file_name
-                            )
+                            self.scope, file_name, **self.obscore_metadata,
+                        )
                         if not retrieved_meta == expected_meta:
                             self.logger.critical(
                                 "Metadata mismatch for DID: {}".format(did["name"])
@@ -365,7 +379,7 @@ class TestIngestionRemote(Task):
                 "name": file_name,
                 "namespace": self.scope,
                 "lifetime": self.lifetime,
-                "meta": getObsCoreMetadataDict()
+                "meta": getObsCoreMetadataDict(self.scope, file_name)
             }
             with open("{}.meta".format(file_path), 'w') as meta_file:
                 json.dump(meta_dict, meta_file, indent=2)
@@ -390,10 +404,7 @@ class TestIngestionRemote(Task):
                             did["name"],
                             plugin="POSTGRES_JSON"
                         )
-                        expected_meta = getObsCoreMetadataDict(
-                            self.obscore_metadata,
-                            file_name
-                            )
+                        expected_meta = getObsCoreMetadataDict(self.scope, file_name)
                         if not retrieved_meta == expected_meta:
                             self.logger.critical(
                                 "Metadata mismatch for DID: {}".format(did["name"])

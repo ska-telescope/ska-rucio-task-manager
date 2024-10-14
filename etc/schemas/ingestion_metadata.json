@@ -1,0 +1,28 @@
+{
+    "type": "object",
+    "version": 1,
+    "description": "Metadata schema for file ingestion.",
+    "properties": {
+        "namespace": {
+            "type": "string"
+        },
+        "name": {
+            "type": "string"
+        },
+        "lifetime": {
+            "type": "number"
+        },
+        "dataset_name": {
+            "type": "string"
+        },
+        "meta": {
+            "type": "object"
+        }
+    },
+    "required": [
+        "namespace",
+        "name",
+        "lifetime"
+    ],
+    "additionalProperties": true
+}

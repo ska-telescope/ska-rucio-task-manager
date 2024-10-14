@@ -1,0 +1,112 @@
+{
+    "type": "object",
+    "version": 1,
+    "description": "Schema for obscore metadata ingestion.",
+    "properties": {
+        "rucio_did_scope": {
+            "type": "string"
+        },
+        "rucio_did_name": {
+            "type": "string"
+        },
+        "dataproduct_type": {
+            "type": "string"
+        },
+        "calib_level": {
+            "type": "integer"
+        },
+        "obs_collection": {
+            "type": "string"
+        },
+        "obs_id": {
+            "type": "string"
+        },
+        "obs_publisher_did": {
+            "type": "string"
+        },
+        "access_url": {
+            "type": "string"
+        },
+        "access_format": {
+            "type": "string"
+        },
+        "access_estsize": {
+            "type": "integer"
+        },
+        "target_name": {
+            "type": "string"
+        },
+        "s_ra": {
+            "type": "number"
+        },
+        "s_dec": {
+            "type": "number"
+        },
+        "s_fov": {
+            "type": "number"
+        },
+        "s_region": {
+            "type": "string"
+        },
+        "s_resolution": {
+            "type": "number"
+        },
+        "s_xel1": {
+            "type": "integer"
+        },
+        "s_xel2": {
+            "type": "integer"
+        },
+        "t_min": {
+            "type": "number"
+        },
+        "t_max": {
+            "type": "number"
+        },
+        "t_exptime": {
+            "type": "number"
+        },
+        "t_resolution": {
+            "type": "number"
+        },
+        "t_xel": {
+            "type": "integer"
+        },
+        "em_min": {
+            "type": "number"
+        },
+        "em_max": {
+            "type": "number"
+        },
+        "em_res_power": {
+            "type": "number"
+        },
+        "em_xel": {
+            "type": "integer"
+        },
+        "o_ucd": {
+            "type": "string"
+        },
+        "pol_states": {
+            "type": "string"
+        },
+        "pol_xel": {
+            "type": "integer"
+        },
+        "facility_name": {
+            "type": "string"
+        },
+        "instrument_name": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "rucio_did_scope",
+        "rucio_did_name",
+        "calib_level",
+        "obs_collection",
+        "obs_id",
+        "obs_publisher_did"
+    ],
+    "additionalProperties": false
+}

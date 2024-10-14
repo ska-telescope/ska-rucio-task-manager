@@ -1,6 +1,7 @@
 dateparser
 elasticsearch==8.7.0
 fts3
+jsonschema
 kubernetes
 M2crypto==0.33
 numpy

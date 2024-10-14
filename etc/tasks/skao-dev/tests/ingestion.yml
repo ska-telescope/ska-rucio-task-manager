@@ -7,77 +7,30 @@ test-ingestion:
   kwargs:
     task_name: "ingestion_test"
     n_files: 3
+    scope: "testing"
     lifetime: 3600
     prefix: "test1"
     sizes: 1000
     ingest_dir: "/tmp/ingest"
-    metadata_schema: |-
-      {
-        "type": "object",
-        "version": 1,
-        "description": "Metadata schema for file ingestion.",
-        "properties": {
-          "namespace": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "lifetime": {
-            "type": "number"
-          },
-          "dataset_name": {
-            "type": "string"
-          },
-          "meta": {
-            "type": "object"
-          }
-        },
-        "required": ["namespace", "name", "lifetime"],
-        "additionalProperties": true
-      }
-    metadata_suffix: meta
+    # ingestion_meta_schema: |-
+    #   {
+    #     <overrides etc/schemas/ingestion_metadata.json>
+    #   }
+    ingestion_meta_suffix: meta
     ingestion_backend_name: rucio
     ingestion_polling_frequency_s: 5
     ingestion_iteration_batch_size: 100
     rucio_ingest_rse_name: STFC_STORM
     n_retries: 5
     delay_s: 5
-    output:
-      databases:
-        - type: es
-          uri: https://monit.srcdev.skao.int:443/elastic
-          index: rucio-task-manager.skao-dev.tasks.tests.ingestion
     obscore_metadata:
-      rucio_did_scope: "testing"
-      rucio_did_name: "test"
-      dataproduct_type: "test"
       calib_level: 0
       obs_collection: "test"
       obs_id: "test"
       obs_publisher_did: "test"
       access_url: "https://ivoa.datalink.srcdev.skao.int/rucio/links?id="
-      access_format: "test"
-      access_estsize: 0
-      target_name: "test"
-      s_ra: 0.0
-      s_dec: 0.0
-      s_fov: 0.0
-      #s_region: 0.0
-      s_resolution: 0.0
-      s_xel1: 0
-      s_xel2: 0
-      t_min: 0.0
-      t_max: 0.0
-      t_exptime: 0.0
-      t_resolution: 0.0
-      t_xel: 0
-      em_min: 0.0
-      em_max: 0.0
-      em_res_power: 0.0
-      em_xel: 0
-      o_ucd: "test"
-      pol_states: "test"
-      pol_xel: 0
-      facility_name: "test"
-      instrument_name: "test"
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.ingestion
