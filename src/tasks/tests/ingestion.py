@@ -2,8 +2,7 @@ import json
 import os
 import subprocess
 import time
-from datetime import datetime
-from dateutil import parser
+from datetime import datetime, timezone
 
 from elasticsearch import Elasticsearch
 from rucio.client.didclient import DIDClient
@@ -131,16 +130,16 @@ class TestIngestionLocal(Task):
                                   self.ingestion_backend_name, self.ingestion_polling_frequency_s,
                                   self.ingestion_iteration_batch_size, self.rucio_ingest_rse_name,
                                   self.rucio_pfn_basepath)
-        
+
         # Set up log message:
-        test_id = "ingestion_test_{}".format(datetime.now().isoformat())
+        test_id = "ingestion_test_{}".format(datetime.now(timezone.utc).isoformat())
         entry = {
             "task_name": self.task_name,
             "name": test_id,
             "scope": self.scope,
             "n_files": self.n_files,
             "lifetime": self.lifetime,
-            "attempted_at": datetime.now().isoformat(),
+            "attempted_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Generate random files, and associated metadata files, of specified sizes and
@@ -239,7 +238,7 @@ class TestIngestionLocal(Task):
                     bcolors.ENDC
                 )
             )
-            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["succeeded_at"] = datetime.now(timezone.utc).isoformat()
             entry["state"] = "INGESTION-SUCCESSFUL"
             entry["success_rate"] = 1.0
             entry["is_ingestion_successful"] = 1
@@ -252,25 +251,20 @@ class TestIngestionLocal(Task):
                     bcolors.ENDC
                 )
             )
-            entry["failed_at"] = datetime.now().isoformat()
+            entry["failed_at"] = datetime.now(timezone.utc).isoformat()
             entry["state"] = "INGESTION-FAILED"
             entry["success_rate"] = succeeded / (succeeded + failed)
             entry["is_ingestion_successful"] = 0
 
-        # Calculate transfer_duration
-        #
-        if "succeeded_at" in entry:
-            transfer_duration = parser.parse(entry["succeeded_at"]) - parser.parse(entry["attempted_at"])
-            entry["transfer_duration"] = transfer_duration.total_seconds()
-        elif "failed_at" in entry:
-            transfer_duration = parser.parse(entry["failed_at"]) - parser.parse(entry["attempted_at"])
-            entry["transfer_duration"] = transfer_duration.total_seconds()
-        else:
-            self.logger.critical("No succeeded_at or failed_at values found.")
-            return False
-
         # Push task output to databases.
         #
+
+        self.logger.info(
+            bcolors.OKBLUE +
+            "Sending the following to Elasticsearch: {}".format(entry) +
+            bcolors.ENDC
+        )
+
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
@@ -345,16 +339,16 @@ class TestIngestionRemote(Task):
         else:
             self.logger.critical("File sizes should either be a list or int")
             return False
-        
+
         # Set up log message:
-        test_id = "ingestion_test_{}".format(datetime.now().isoformat())
+        test_id = "ingestion_test_{}".format(datetime.now(timezone.utc).isoformat())
         entry = {
             "task_name": self.task_name,
             "name": test_id,
             "scope": self.scope,
             "n_files": self.n_files,
             "lifetime": self.lifetime,
-            "attempted_at": datetime.now().isoformat(),
+            "attempted_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Generate random files, and associated metadata files, of specified sizes and
@@ -450,7 +444,7 @@ class TestIngestionRemote(Task):
                     bcolors.ENDC
                 )
             )
-            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["succeeded_at"] = datetime.now(timezone.utc).isoformat()
             entry["state"] = "INGESTION-SUCCESSFUL"
             entry["success_rate"] = 1.0
             entry["is_ingestion_successful"] = 1
@@ -463,25 +457,20 @@ class TestIngestionRemote(Task):
                     bcolors.ENDC
                 )
             )
-            entry["failed_at"] = datetime.now().isoformat()
+            entry["failed_at"] = datetime.now(timezone.utc).isoformat()
             entry["state"] = "INGESTION-FAILED"
             entry["success_rate"] = succeeded / (succeeded + failed)
             entry["is_ingestion_successful"] = 0
 
-        # Calculate transfer_duration
-        #
-        if "succeeded_at" in entry:
-            transfer_duration = parser.parse(entry["succeeded_at"]) - parser.parse(entry["attempted_at"])
-            entry["transfer_duration"] = transfer_duration.total_seconds()
-        elif "failed_at" in entry:
-            transfer_duration = parser.parse(entry["failed_at"]) - parser.parse(entry["attempted_at"])
-            entry["transfer_duration"] = transfer_duration.total_seconds()
-        else:
-            self.logger.critical("No succeeded_at or failed_at values found.")
-            return False
-
         # Push task output to databases.
         #
+
+        self.logger.info(
+            bcolors.OKBLUE +
+            "Sending the following to Elasticsearch: {}".format(entry) +
+            bcolors.ENDC
+        )
+
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
@@ -491,3 +480,4 @@ class TestIngestionRemote(Task):
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
+

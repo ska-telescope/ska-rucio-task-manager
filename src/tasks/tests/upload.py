@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import time
 
@@ -30,8 +30,6 @@ class TestUpload(Task):
     def run(self, args, kwargs):
         super().run()
         self.tic()
-        total_duration = 0.0
-        total_file_size = 0.0
         try:
             self.nFiles = kwargs.get("n_files", 0)
             self.rses = kwargs["rses"]
@@ -80,13 +78,13 @@ class TestUpload(Task):
         # other listed RSEs.
         #
         entries = []
+        fileDIDs = []
+        filePaths = []
         for rseDst in self.rses:
             self.logger.info(
                 bcolors.OKBLUE + "RSE (dst): {}".format(rseDst) + bcolors.ENDC
             )
             for protocol in self.protocols:
-                fileDIDs = []
-                filePaths = []
                 if not passed_files:
                     for idx in range(self.nFiles):
                         self.logger.debug("File size: {} bytes".format(self.sizes[idx]))
@@ -104,8 +102,8 @@ class TestUpload(Task):
                         filePaths.append(f.name)
                         fileDIDs.append("{}:{}".format(self.scope, os.path.basename(f.name)))
                 else:
-                    filePaths = self.filePaths
                     for filePath in self.filePaths:
+                        filePaths = self.filePaths
                         fileDIDs.append(
                             "{}:{}".format(self.scope, os.path.basename(filePath))
                         )
@@ -118,9 +116,7 @@ class TestUpload(Task):
                         )
                     )
 
-                    now = datetime.now()
                     entry = {
-                        "@timestamp": datetime.now().isoformat(),
                         "task_name": self.taskName,
                         "scope": self.scope,
                         "name": os.path.basename(filePath),
@@ -129,7 +125,7 @@ class TestUpload(Task):
                         "n_files": 1,
                         "to_rse": rseDst,
                         "protocol": protocol,
-                        "attempted_at": now.isoformat(),
+                        "attempted_at": datetime.now(timezone.utc).isoformat(),
                         "is_upload_submitted": 1,
                     }
                     try:
@@ -148,14 +144,12 @@ class TestUpload(Task):
                         client.upload(items=items)
 
                         # Add keys for successful upload.
+                        entry["succeeded_at"] = datetime.now(timezone.utc).isoformat()
                         entry["transfer_duration"] = time.time() - st
-                        total_duration += entry["transfer_duration"]
-                        total_file_size += entry["file_size"]
                         entry["transfer_rate"] = entry["file_size"] / (entry["transfer_duration"]*1000)
                         entry["state"] = "UPLOAD-SUCCESSFUL"
                         entry["is_upload_successful"] = 1
                         self.logger.debug("Upload complete")
-
 
                         # Attach to dataset
                         self.logger.debug(
@@ -180,6 +174,7 @@ class TestUpload(Task):
                         self.logger.warning("Upload failed: {}".format(e))
 
                         # Add keys for failed upload.
+                        entry["failed_at"] = datetime.now(timezone.utc).isoformat()
                         entry["error"] = repr(e.__class__.__name__).strip("'")
                         entry["error_details"] = repr(e).strip("'")
                         entry["state"] = "UPLOAD-FAILED"
@@ -189,34 +184,22 @@ class TestUpload(Task):
 
                     entries.append(entry)
 
-        # Calculate total tranfer rates (useful if there are multiple files)
-        #
-        total_transfer_rate = total_file_size / ( total_duration * 1000 )
-
-        end_entry = {
-            "n_files": len(entries),
-            "total_file_size": total_file_size,
-            "total_duration": total_duration,
-            "total_transfer_rate": total_transfer_rate,
-        }
-
         # Push task output to databases.
         #
+
         self.logger.info(
             bcolors.OKBLUE +
-            "Sending the following to Elasticsearch: {} \n{}".format(entries, end_entry) +
+            "Sending the following to Elasticsearch: {}".format(entries) +
             bcolors.ENDC
         )
 
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
-                    self.logger.info("Sending output to ES database: {}...".format(database['uri']))
+                    self.logger.info("Sending output to ES database...")
                     es = Elasticsearch([database['uri']])
                     for entry in entries:
                         es.index(index=database["index"], id=entry['name'], body=entry)
-                    es.index(index=database["index"], body=end_entry)
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
-
