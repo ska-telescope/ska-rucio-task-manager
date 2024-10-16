@@ -1,0 +1,26 @@
+test1-full-grid:
+  description: "Test upload and replication between RSEs."
+  module_name: "tasks.tests.upload_replication"
+  class_name: "TestUploadReplication"
+  enabled: false
+  args:
+  kwargs:
+    activity: "DC25 Test 1 Full Grid"
+    n_files: 10
+    sizes:
+      - 1000000 # bytes
+    lifetime: 3600 # seconds
+    rses:
+      - STFC_STORM
+      - SPSRC_STORM
+      - SESRC_STORM
+      - NLSRC_PROD_DCACHE
+      - ITSRC_IRA_XRD
+      - CHSRC_XRD_DEV
+      - CASRC_XRD
+    scope: testing
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
