@@ -1,14 +1,14 @@
-test1-full-grid:
-  description: "Test upload and replication between RSEs."
+test1-full-grid-smoke:
+  description: "DC25 - Test upload and replication between RSEs at small scale."
   module_name: "tasks.tests.upload_replication"
   class_name: "TestUploadReplication"
-  enabled: false
+  enabled: true
   args:
   kwargs:
-    activity: "DC25 Test 1 Full Grid"
-    n_files: 10
+    activity: "Functional Test"
+    n_files: 1
     sizes:
-      - 1000000 # bytes
+      - 10000 # bytes
     lifetime: 3600 # seconds
     rses:
       - STFC_STORM
@@ -22,5 +22,5 @@ test1-full-grid:
     output:
       databases:
         - type: es
-          uri: https://monit.srcdev.skao.int/elastic
-          index: rucio-task-manager.skao-dev.tasks.tests.upload-replication
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.dc25.test1-full-grid-smoke

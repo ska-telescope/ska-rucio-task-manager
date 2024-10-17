@@ -1,10 +1,10 @@
 import copy
 import os
 import random
-
-from rucio.client.uploadclient import Client, UploadClient
+from datetime import datetime
 
 from elasticsearch import Elasticsearch
+from rucio.client.uploadclient import Client, UploadClient
 
 from common.rucio.helpers import createCollection
 from tasks.task import Task
@@ -49,11 +49,29 @@ class TestUploadReplication(Task):
         #
         datasetDID = createCollection(self.logger.name, self.scope)
 
+        # Set up log message:
+        #
+        test_id = "upload_replication_{}".format(datetime.now().isoformat())
+        entry = {
+            "task_name": self.taskName,
+            "name": test_id,
+            "scope": self.scope,
+            "n_files": self.nFiles,
+            "sizes": self.sizes,
+            "lifetime": self.lifetime,
+            "started_at": datetime.now().isoformat(),
+        }
+        n_success = 0
+        n_fail = 0
+        rse_success_rate = {}
+
         # Iteratively upload a file of size from <sizes> to each
         # RSE, attach to the dataset, add replication rules to the
         # other listed RSEs.
         #
         for rseSrc in self.rses:
+            rse_n_success = 0
+            rse_n_fail = 0
             self.logger.info(
                 bcolors.OKBLUE + "RSE (src): {}".format(rseSrc) + bcolors.ENDC
             )
@@ -80,9 +98,11 @@ class TestUploadReplication(Task):
                         client = UploadClient(logger=self.logger)
                         client.upload(items=items)
                     except Exception as e:
+                        rse_n_fail += 1
                         self.logger.warning(repr(e))
                         os.remove(f.name)
                         break
+                    rse_n_success += 1
                     self.logger.debug("Upload complete")
                     os.remove(f.name)
 
@@ -137,13 +157,23 @@ class TestUploadReplication(Task):
                             self.logger.warning(repr(e))
                             continue
                     self.logger.debug("Replication rules added")
+            rse_success_rate[rseSrc] = rse_n_success / (rse_n_success + rse_n_fail)
+            n_success += rse_n_success
+            n_fail += rse_n_fail
+
+        entry["success_rate_by_rse"] = rse_success_rate
+        entry["finished_at"] = datetime.now().isoformat()
+        entry["overall_success_rate"] = n_success / (n_success + n_fail)
 
         # Push task output to databases.
         #
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
-                    self.logger.info("Nothing to pass to database, skipping...")
+                    # self.logger.info("Nothing to pass to database, skipping...")
+                    self.logger.info("Sending output to ES database: {}...".format(database['uri']))
+                    es = Elasticsearch([database['uri']])
+                    es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
