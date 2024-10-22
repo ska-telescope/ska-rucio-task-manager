@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import time
 
@@ -116,7 +116,6 @@ class TestUpload(Task):
                         )
                     )
 
-                    now = datetime.now()
                     entry = {
                         "task_name": self.taskName,
                         "scope": self.scope,
@@ -126,7 +125,7 @@ class TestUpload(Task):
                         "n_files": 1,
                         "to_rse": rseDst,
                         "protocol": protocol,
-                        "attempted_at": now.isoformat(),
+                        "attempted_at": datetime.now(timezone.utc).isoformat(),
                         "is_upload_submitted": 1,
                     }
                     try:
@@ -145,6 +144,7 @@ class TestUpload(Task):
                         client.upload(items=items)
 
                         # Add keys for successful upload.
+                        entry["succeeded_at"] = datetime.now(timezone.utc).isoformat()
                         entry["transfer_duration"] = time.time() - st
                         entry["transfer_rate"] = entry["file_size"] / (entry["transfer_duration"]*1000)
                         entry["state"] = "UPLOAD-SUCCESSFUL"
@@ -174,6 +174,7 @@ class TestUpload(Task):
                         self.logger.warning("Upload failed: {}".format(e))
 
                         # Add keys for failed upload.
+                        entry["failed_at"] = datetime.now(timezone.utc).isoformat()
                         entry["error"] = repr(e.__class__.__name__).strip("'")
                         entry["error_details"] = repr(e).strip("'")
                         entry["state"] = "UPLOAD-FAILED"
@@ -185,6 +186,13 @@ class TestUpload(Task):
 
         # Push task output to databases.
         #
+
+        self.logger.info(
+            bcolors.OKBLUE +
+            "Sending the following to Elasticsearch: {}".format(entries) +
+            bcolors.ENDC
+        )
+
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":

@@ -1,0 +1,61 @@
+test3-burst-transfer-upload-smoke:
+  description: "DC25 - Test uploading via different protocols to RSEs."
+  module_name: "tasks.tests.upload"
+  class_name: "TestUpload"
+  enabled: true
+  args:
+  kwargs:
+    n_files: 3
+    sizes:
+      - 100000 # bytes
+      - 100000
+      - 100000
+    lifetime: 3600 # seconds
+    protocols:
+      - https
+    rses:
+      - STFC_STORM
+    scope: testing
+    file_paths:
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.dc25.test3-burst-transfer-smoke
+
+test3-burst-transfer-ingestion-smoke:
+  description: "DC25 - Test ingestion by spawning a local instance of the ska-src-ingestion service."
+  module_name: "tasks.tests.ingestion"
+  class_name: "TestIngestionLocal"
+  enabled: true
+  args:
+  kwargs:
+    n_files: 3
+    scope: "testing"
+    lifetime: 3600
+    prefix: "test1"
+    sizes: 1000
+    ingest_dir: "/tmp/ingest"
+    # ingestion_meta_schema: |-
+    #   {
+    #     <overrides etc/schemas/ingestion_metadata.json>
+    #   }
+    ingestion_meta_suffix: meta      
+    ingestion_backend_name: rucio
+    ingestion_polling_frequency_s: 5
+    ingestion_iteration_batch_size: 100
+    rucio_ingest_rse_name: STFC_STORM
+    n_retries: 5
+    delay_s: 5
+    obscore_metadata:
+      calib_level: 0
+      obs_collection: "test"
+      obs_id: "test"
+      obs_publisher_did: "test"
+      access_url: "https://ivoa.datalink.srcdev.skao.int/rucio/links?id="
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.dc25.test3-burst-transfer-smoke
+

@@ -3,7 +3,7 @@ import jsonschema
 import os
 import subprocess
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from elasticsearch import Elasticsearch
 from rucio.client.didclient import DIDClient
@@ -157,9 +157,11 @@ class TestIngestionLocal(Task):
             "task_name": self.task_name,
             "name": test_id,
             "scope": self.scope,
+            "file_size": self.sizes,
             "n_files": self.n_files,
             "lifetime": self.lifetime,
-            "attempted_at": datetime.now().isoformat(),
+            "to_rse": self.rucio_ingest_rse_name,
+            "attempted_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Generate random files, and associated metadata files, of specified sizes and
@@ -254,7 +256,7 @@ class TestIngestionLocal(Task):
                     bcolors.ENDC
                 )
             )
-            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["succeeded_at"] = datetime.now(timezone.utc).isoformat()
             entry["state"] = "INGESTION-SUCCESSFUL"
             entry["success_rate"] = 1.0
             entry["is_ingestion_successful"] = 1
@@ -274,6 +276,13 @@ class TestIngestionLocal(Task):
 
         # Push task output to databases.
         #
+
+        self.logger.info(
+            bcolors.OKBLUE +
+            "Sending the following to Elasticsearch: {}".format(entry) +
+            bcolors.ENDC
+        )
+
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
@@ -355,9 +364,11 @@ class TestIngestionRemote(Task):
             "task_name": self.task_name,
             "name": test_id,
             "scope": self.scope,
+            "file_size": self.sizes,
             "n_files": self.n_files,
             "lifetime": self.lifetime,
-            "attempted_at": datetime.now().isoformat(),
+            "to_rse": self.rucio_ingest_rse_name,
+            "attempted_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Generate random files, and associated metadata files, of specified sizes and
@@ -450,7 +461,7 @@ class TestIngestionRemote(Task):
                     bcolors.ENDC
                 )
             )
-            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["succeeded_at"] = datetime.now(timezone.utc).isoformat()
             entry["state"] = "INGESTION-SUCCESSFUL"
             entry["success_rate"] = 1.0
             entry["is_ingestion_successful"] = 1
@@ -463,13 +474,20 @@ class TestIngestionRemote(Task):
                     bcolors.ENDC
                 )
             )
-            entry["failed_at"] = datetime.now().isoformat()
+            entry["failed_at"] = datetime.now(timezone.utc).isoformat()
             entry["state"] = "INGESTION-FAILED"
             entry["success_rate"] = succeeded / (succeeded + failed)
             entry["is_ingestion_successful"] = 0
         
         # Push task output to databases.
         #
+
+        self.logger.info(
+            bcolors.OKBLUE +
+            "Sending the following to Elasticsearch: {}".format(entry) +
+            bcolors.ENDC
+        )
+
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
