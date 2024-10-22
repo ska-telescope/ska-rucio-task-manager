@@ -1,0 +1,24 @@
+test-replication:
+  description: "Test replication of existing data to different RSEs."
+  module_name: "tasks.tests.replicate_dataset"
+  class_name: "TestReplication"
+  enabled: true
+  args:
+  kwargs:
+    datasetName: "magenta"
+    lifetime: 3600 # seconds
+    protocols:
+      - https
+    rses:
+      - STFC_STORM
+      - NLSRC_DCACHE
+      - SPSRC_STORM
+    scope: testing
+    activity: "Functional Test"
+    file_paths:
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.upload
+

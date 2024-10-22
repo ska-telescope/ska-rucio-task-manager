@@ -8,6 +8,7 @@ test-ingestion:
     task_name: "ingestion_test"
     n_files: 3
     scope: "testing"
+    datasetName: "magenta"
     lifetime: 3600
     prefix: "test1"
     sizes: 1000

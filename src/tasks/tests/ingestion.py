@@ -91,6 +91,7 @@ class TestIngestionLocal(Task):
             self.task_name = kwargs["task_name"]
             self.n_files = kwargs["n_files"]
             self.scope = kwargs["scope"]
+            self.datasetName = kwargs["datasetName"]
             self.lifetime = kwargs["lifetime"]
             self.prefix = kwargs["prefix"]
             self.sizes = kwargs["sizes"]
@@ -182,6 +183,8 @@ class TestIngestionLocal(Task):
             meta_dict = {
                 "name": file_name,
                 "namespace": self.scope,
+                "dataset_name": self.datasetName,
+                "dataset_scope": self.scope,
                 "lifetime": self.lifetime,
                 "meta": getObsCoreMetadataDict(
                     self.scope, file_name, **self.obscore_metadata,
