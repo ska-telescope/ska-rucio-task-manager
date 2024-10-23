@@ -5,9 +5,9 @@ test-ingestion:
   enabled: true
   args:
   kwargs:
-    task_name: "ingestion_test"
     n_files: 3
     scope: "testing"
+    datasetName: "test_dataset"
     lifetime: 3600
     prefix: "test1"
     sizes: 1000

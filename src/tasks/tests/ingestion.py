@@ -44,6 +44,7 @@ class TestIngestionLocal(Task):
         self.collection_name = None
         self.n_files = None
         self.scope = None
+        self.datasetName = None
         self.lifetime = None
         self.prefix = None
         self.sizes = None
@@ -91,6 +92,7 @@ class TestIngestionLocal(Task):
             self.task_name = kwargs["task_name"]
             self.n_files = kwargs["n_files"]
             self.scope = kwargs["scope"]
+            self.datasetName = kwargs.get("datasetName", "")
             self.lifetime = kwargs["lifetime"]
             self.prefix = kwargs["prefix"]
             self.sizes = kwargs["sizes"]
@@ -187,6 +189,9 @@ class TestIngestionLocal(Task):
                     self.scope, file_name, **self.obscore_metadata,
                 )
             }
+            if self.datasetName:
+                meta_dict["dataset_name"] = self.datasetName
+                meta_dict["dataset_scope"] = self.scope
             with open("{}.meta".format(file_path), 'w') as meta_file:
                 json.dump(meta_dict, meta_file, indent=2)
 
