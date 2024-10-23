@@ -5,16 +5,13 @@ test-replication:
   enabled: true
   args:
   kwargs:
-    datasetName: "magenta"
+    activity: "Functional Test"
+    scope: "testing"
+    datasetName: "test_dataset"
     lifetime: 3600 # seconds
-    protocols:
-      - https
     rses:
-      - STFC_STORM
       - NLSRC_DCACHE
       - SPSRC_STORM
-    scope: testing
-    activity: "Functional Test"
     file_paths:
     output:
       databases:
