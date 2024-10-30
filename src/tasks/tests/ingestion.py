@@ -92,7 +92,7 @@ class TestIngestionLocal(Task):
             self.task_name = kwargs["task_name"]
             self.n_files = kwargs["n_files"]
             self.scope = kwargs["scope"]
-            self.datasetName = kwargs.get("datasetName", "")
+            self.datasetName = kwargs.get("dataset_name", "")
             self.lifetime = kwargs["lifetime"]
             self.prefix = kwargs["prefix"]
             self.sizes = kwargs["sizes"]
@@ -154,7 +154,7 @@ class TestIngestionLocal(Task):
                                   self.rucio_pfn_basepath)
         
         # Set up log message:
-        test_id = "ingestion_test_{}".format(datetime.now().isoformat())
+        test_id = "{}_{}".format(self.datasetName,datetime.now().isoformat())
         entry = {
             "task_name": self.task_name,
             "name": test_id,
