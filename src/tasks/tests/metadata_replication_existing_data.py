@@ -83,7 +83,7 @@ class MetadataReplicationExistingData(Task):
         # Find the latest dataset produced by the metadata_replication test
         #
         try:
-            name_pattern = "{}_*".format(self.datasetName)
+            name_pattern = "{}*".format(self.datasetName)
             self.logger.info(
                 bcolors.OKBLUE +
                 "Searching all datasets in scope '{}' with pattern '{}'".format(
