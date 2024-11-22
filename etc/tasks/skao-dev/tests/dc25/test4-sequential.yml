@@ -1,68 +1,35 @@
 test4-burst-transfer-ingestion-smoke:
-  description: "DC25 - Test ingestion by spawning a local instance of the ska-src-ingestion service."
-  module_name: "tasks.tests.ingestion"
-  class_name: "TestIngestionLocal"
-  enabled: true
-  args:
-  kwargs:
-    n_files: 3
-    scope: "testing"
-    lifetime: 3600
-    prefix: "test4"
-    sizes: 1000
-    ingest_dir: "/tmp/ingest"
-    scope: "sp4274_subscriptions"
-    dataset_name: "DC25_test4"
-    # ingestion_meta_schema: |-
-    #   {
-    #     <overrides etc/schemas/ingestion_metadata.json>
-    #   }
-    ingestion_meta_suffix: meta
-    ingestion_backend_name: rucio
-    ingestion_polling_frequency_s: 5
-    ingestion_iteration_batch_size: 100
-    rucio_ingest_rse_name: STFC_STORM
-    n_retries: 5
-    delay_s: 5
-    obscore_metadata:
-      calib_level: 0
-      obs_collection: "test4"
-      obs_id: "test4"
-      obs_publisher_did: "test4"
-      access_url: "https://ivoa.datalink.srcdev.skao.int/rucio/links?id="
-    output:
-      databases:
-        - type: es
-          uri: https://monit.srcdev.skao.int:443/elastic
-          index: rucio-task-manager.skao-dev.tasks.tests.dc25.test3-burst-transfer-smoke
-
-metadata-replication-existing-data:
-  description: "DC25 - Update subscription to trigger replication of existing data."
-  module_name: "tasks.tests.metadata_replication_existing_data"
-  class_name: "MetadataReplicationExistingData"
+  description: "Upload data and set up a metadata-based subscription for it."
+  module_name: "tasks.tests.metadata_replication"
+  class_name: "MetadataReplication"
   enabled: true
   args:
   kwargs:
     account: "ajm"
     scope: "sp4274_subscriptions"
+    rse: "STFC_STORM"
+    size: 10000
+    lifetime: 3600
     dataset_name: "DC25_test4"
-    new_replication_rules:
-      - copies: 1
-        rse_expression: "STFC_STORM"
-        lifetime: 3600
-        activity: User Subscriptions
-    subscription_name: "test_subscription"
+    fixed_metadata: # Explicit k-v pairs to set as metadata
+      project: skao_proj_1
+    subscription_name: test_subscription
     filters:
       scope:
         - "sp4274_subscriptions"
-      # Update the filters as needed to match existing data
-      obs_collection: "test4"
-    comments: "Updated subscription on exisiting data"
+      project:
+        - skao_proj_1
+    replication_rules:
+      - copies: 1
+        rse_expression: "NLSRC_DCACHE"
+        lifetime: 3600
+        activity: User Subscriptions
+    comments: Test subscription
     subscription_lifetime: 3600
     retroactive: false
     dry_run: false
     priority: 3
-    delay_s: 10
+    delay_s: 10 # Interval between retries
     timeout: 300
     output:
       databases:
