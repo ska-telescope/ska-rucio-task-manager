@@ -61,6 +61,7 @@ class MetadataReplication(Task):
         self.outputDatabases = None
 
     def run(self, args, kwargs):
+        start_time = time.time()
         super().run()
         self.tic()
 
@@ -114,7 +115,7 @@ class MetadataReplication(Task):
         #
         try:
             self.logger.debug(
-                bcolors.OKBLUE + 
+                bcolors.OKBLUE +
                 "Setting metadata: {} for dataset {} at scope {}".format(
                     self.fixedMetadata, dataset_name, self.scope
                 ) +
@@ -159,12 +160,12 @@ class MetadataReplication(Task):
                 bcolors.ENDC
             )
             did_client.attach_dids_to_dids(attachments=[attachment])
-            
+
             # Verify attachment succeeded:
             files = did_client.list_files(self.scope, dataset_name)
             if len(list(files)) < 1:
                 raise Exception("No files attached to dataset {}".format(dataset_name))
-            
+
             upl_duration = round(time.time() - upl_start)
             self.logger.info(
                 bcolors.OKGREEN +
@@ -175,7 +176,7 @@ class MetadataReplication(Task):
         except Exception as e:
             # Cannot continue with this test if upload/attachment fails
             self.logger.critical(
-                bcolors.FAIL + 
+                bcolors.FAIL +
                 "Upload/attachment failed: {}".format(str(e)) +
                 bcolors.ENDC
             )
@@ -212,8 +213,8 @@ class MetadataReplication(Task):
                 # Update an existing subscription
                 #
                 self.logger.info(
-                    bcolors.OKBLUE + 
-                    "Subscription {} exists, ".format(self.subscriptionName) + 
+                    bcolors.OKBLUE +
+                    "Subscription {} exists, ".format(self.subscriptionName) +
                     "so updating it with {}.".format(subscription_data) +
                     bcolors.ENDC
                 )
@@ -308,7 +309,7 @@ class MetadataReplication(Task):
                     bcolors.ENDC
                 )
                 return False
-            
+
             # Expect one replica at the intial RSE + one for each of the replication rules
             #
             exp_replica_count = 1 + len(self.replicationRules)
@@ -335,6 +336,13 @@ class MetadataReplication(Task):
                 bcolors.ENDC
             )
 
+        end_time = time.time()
+        total_duration_seconds = end_time - start_time
+
+        es_entry.update({
+            "total_duration": total_duration_seconds
+        })
+
         # Push task output to databases.
         #
         self.logger.info(
@@ -353,3 +361,4 @@ class MetadataReplication(Task):
         self.logger.info(
             bcolors.OKGREEN + "Finished in {}s".format(round(self.elapsed)) + bcolors.ENDC
         )
+

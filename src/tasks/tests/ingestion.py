@@ -265,6 +265,7 @@ class TestIngestionLocal(Task):
             entry["state"] = "INGESTION-SUCCESSFUL"
             entry["success_rate"] = 1.0
             entry["is_ingestion_successful"] = 1
+            entry["failed_at"] = None
         else:
             self.logger.info(
                 "{}Failed to ingest {} / {} files.{}".format(
