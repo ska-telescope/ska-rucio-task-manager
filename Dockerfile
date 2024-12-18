@@ -20,7 +20,7 @@ RUN python3 -m pip install --upgrade pip
 COPY requirements.txt /tmp/requirements.txt
 
 # additional indices for ingestor and the rucio-extended-client
-RUN python3 -m pip install -r /tmp/requirements.txt --extra-index-url https://gitlab.com/api/v4/projects/51600992/packages/pypi/simple --extra-index-url https://gitlab.com/api/v4/projects/39600235/packages/pypi/simple
+#RUN python3 -m pip install -r /tmp/requirements.txt --extra-index-url https://gitlab.com/api/v4/projects/51600992/packages/pypi/simple --extra-index-url https://gitlab.com/api/v4/projects/39600235/packages/pypi/simple
 
 COPY --chown=user . ${RUCIO_TASK_MANAGER_ROOT}
 
