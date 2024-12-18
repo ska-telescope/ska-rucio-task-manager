@@ -404,7 +404,7 @@ This token can be retrieved by running a Rucio client container and authenticati
 
 ```bash
 $ export RUCIO_CFG_ACCOUNT=<account>
-$ docker run -it --rm -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT -e RUCIO_CFG_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/ska-rucio-client:release-1.29.0
+$ docker run -it --rm -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT -e RUCIO_CFG_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/ska-rucio-client:release-35.6.0
 $ rucio whoami
 ```
 

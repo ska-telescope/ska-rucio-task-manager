@@ -7,10 +7,6 @@ ENV RUCIO_TASK_MANAGER_ROOT /opt/rucio-task-manager
 
 USER root
 
-# centos7 eol mitigation
-RUN sed -i.bak 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
-RUN sed -i.bak 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 
-
 # repo for oidc-agent
 RUN wget https://repo.data.kit.edu/data-kit-edu-centos7.repo -O /etc/yum.repos.d/data-kit-edu-centos7.repo
 
