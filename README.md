@@ -264,8 +264,8 @@ e.g.
 
 ```yaml
 config:
-  RUCIO_CFG_CLIENT_RUCIO_HOST: https://rucio.srcdev.skao.int
-  RUCIO_CFG_CLIENT_AUTH_HOST: https://rucio.srcdev.skao.int
+  RUCIO_CFG_CLIENT_RUCIO_HOST: https://rucio.srcnet.skao.int
+  RUCIO_CFG_CLIENT_AUTH_HOST: https://rucio-auth.srcnet.skao.int
 ```
 
 Secrets such as certificates and keys that are created on the cluster, e.g. 
@@ -372,11 +372,11 @@ manager in.
 To retrieve a token using the authorization code flow, we need to give Rucio an authorisation code from IAM. 
 To generate the URL to begin the process we first curl the `/oidc` endpoint, which will return a populated URL pointing  
 to the `/redirect` endpoint. In this example, we shall be authenticating against the SKAO Rucio prototype 
-at `https://srcdev.skatelescope.org/rucio-dev/`:
+at `https://rucio-auth.srcnet.skao.int`:
 
 ```bash
-$ curl -D - https://srcdev.skatelescope.org/rucio-dev/auth/oidc | grep X-Rucio-OIDC-Auth-URL | awk -F ': ' '{ print $2 }'
-https://srcdev.skatelescope.org/rucio-dev/auth/oidc_redirect?MHsWssd...
+$ curl -D - https://rucio-auth.srcnet.skao.int/auth/oidc | grep X-Rucio-OIDC-Auth-URL | awk -F ': ' '{ print $2 }'
+https://rucio-auth.srcnet.skao.int/auth/oidc_redirect?MHsWssd...
 ```
 
 where the URL is retrieved from the response header, `X-Rucio-OIDC-Auth-URL`. Following this link will take you 
@@ -392,7 +392,7 @@ Finally, we submit another request to the `/oidc_redirect` endpoint with the cod
 the query string and with `X-Rucio-Client-Fetch-Token` set to true as a request header:
 
 ```bash
-$ curl -D - https://srcdev.skatelescope.org/rucio-dev/auth/oidc_redirect?<code> -H "X-Rucio-Client-Fetch-Token: True" | grep X-Rucio-Auth-Token | awk -F ": " '{ print $2 }'
+$ curl -D - https://rucio-auth.srcnet.skao.int/auth/oidc_redirect?<code> -H "X-Rucio-Client-Fetch-Token: True" | grep X-Rucio-Auth-Token | awk -F ": " '{ print $2 }'
 eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJ3bGNnLnZlciI6IjEuMCIsInN1Y...
 ```
 
