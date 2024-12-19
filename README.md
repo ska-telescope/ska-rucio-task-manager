@@ -96,14 +96,14 @@ make build-skao
 To use the framework, it is first necessary to set a few environment variables. A brief description of each is given 
 below:
 
-- **RUCIO_CFG_ACCOUNT**: the Rucio account under which the tasks are to be performed
-- **RUCIO_CFG_AUTH_TYPE**: the authentication type (userpass || x509 || oidc)
+- **RUCIO_CFG_CLIENT_ACCOUNT**: the Rucio account under which the tasks are to be performed
+- **RUCIO_CFG_CLIENT_AUTH_TYPE**: the authentication type (userpass || oidc)
 - **TASK_FILE_PATH**: the relative path from the package root to the task file or url
 
 Depending on whether they are already set in the image's baked-in `rucio.cfg`, the following may need to be set:
 
-- **RUCIO_CFG_RUCIO_HOST**: the Rucio server host
-- **RUCIO_CFG_AUTH_HOST**: the Rucio auth host
+- **RUCIO_CFG_CLIENT_RUCIO_HOST**: the Rucio server host
+- **RUCIO_CFG_CLIENT_AUTH_HOST**: the Rucio auth host
 
 Additionally, there are authentication type dependent variables that must be set.
 
@@ -111,25 +111,8 @@ Additionally, there are authentication type dependent variables that must be set
 
 For "userpass" authentication, the following variables are also required:
 
-- **RUCIO_CFG_USERNAME**: username
-- **RUCIO_CFG_PASSWORD**: the corresponding password for the user
-
-#### For authentication by X.509
-
-For "x509" authentication, it is possible to supply the necessary credentials via two methods.
-
-If the key/certificate values are stored in environment variables as plaintext, e.g. coming from a k8s secret, then:
-
-- **RUCIO_CFG_CLIENT_CERT_VALUE**: a valid X.509 certificate
-- **RUCIO_CFG_CLIENT_KEY_VALUE**: a valid X.509 key
-
-Alternatively, the paths to the key/certificate can be held in the following variables:
-
-- **RUCIO_CFG_CLIENT_CERT**: path to a valid X.509 certificate 
-- **RUCIO_CFG_CLIENT_KEY**: path to a valid X.509 key
-- **VOMS**: the virtual organisation that the user belongs to
-
-but the key/certificate **must be volume mounted to these locations**.
+- **RUCIO_CFG_CLIENT_USERNAME**: username
+- **RUCIO_CFG_CLIENT_PASSWORD**: the corresponding password for the user
 
 #### For authentication by OpenID Connect (OIDC)
 
@@ -170,8 +153,8 @@ are stored in environment variables as plaintext:
 
 Depending on whether they are already set in the image's baked-in `rucio.cfg`, the following may also need to be set:
 
-- **RUCIO_CFG_OIDC_SCOPE**: list of OIDC scopes
-- **RUCIO_CFG_OIDC_AUDIENCE**: list of OIDC audiences
+- **RUCIO_CFG_CLIENT_OIDC_SCOPE**: list of OIDC scopes
+- **RUCIO_CFG_CLIENT_OIDC_AUDIENCE**: list of OIDC audiences
 
 This method can be used for asynchronous cronjobs where a token needs to be retrieved at run-time.
 
@@ -192,10 +175,10 @@ explicitly supplied, they will be taken from the `rucio.cfg`.
 
 ```bash
 docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=userpass \
--e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
--e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
--e RUCIO_CFG_PASSWORD=$RUCIO_CFG_PASSWORD \
+-e RUCIO_CFG_CLIENT_AUTH_TYPE=userpass \
+-e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT \
+-e RUCIO_CFG_CLIENT_USERNAME=$RUCIO_CFG_CLIENT_USERNAME \
+-e RUCIO_CFG_CLIENT_PASSWORD=$RUCIO_CFG_CLIENT_PASSWORD \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
 ```
@@ -205,10 +188,10 @@ have exported the project's root directory path as `RUCIO_TASK_MANAGER_ROOT`, e.
 
 ```bash
 eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=userpass \
--e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
--e RUCIO_CFG_USERNAME=$RUCIO_CFG_USERNAME \
--e RUCIO_CFG_PASSWORD=$RUCIO_CFG_PASSWORD \
+-e RUCIO_CFG_CLIENT_AUTH_TYPE=userpass \
+-e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT \
+-e RUCIO_CFG_CLIENT_USERNAME=$RUCIO_CFG_CLIENT_USERNAME \
+-e RUCIO_CFG_CLIENT_PASSWORD=$RUCIO_CFG_CLIENT_PASSWORD \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
 --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
@@ -216,54 +199,19 @@ eng@ubuntu:~/rucio-task-manager$ docker run --rm -it \
 
 With this, it is not required to rebuild the image everytime it is run.
 
-#### x509
-
-##### By passing in key/certificate values as plaintext
-
-```bash
-docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=x509 \
--e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
--e RUCIO_CFG_CLIENT_CERT_VALUE="`cat $RUCIO_CFG_CLIENT_CERT`" \
--e RUCIO_CFG_CLIENT_KEY_VALUE="`cat $RUCIO_CFG_CLIENT_KEY`" \
--e VOMS=skatelescope.eu \
--e TASK_FILE_PATH=etc/tasks/stubs.yml \
--v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
---name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
-```
-
-##### By passing in key/certificate paths
-
-For X.509 authentication with Rucio via paths you must bind the certificate credentials to a volume inside the 
-container, e.g.:
-
-```bash
-docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=x509 \
--e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
--e RUCIO_CFG_CLIENT_CERT=/opt/rucio/etc/client.crt \
--e RUCIO_CFG_CLIENT_KEY=/opt/rucio/etc/client.key \
--e VOMS=skatelescope.eu \
--e TASK_FILE_PATH=etc/tasks/stubs.yml \
--v $RUCIO_CFG_CLIENT_CERT:/opt/rucio/etc/client.crt \
--v $RUCIO_CFG_CLIENT_KEY:/opt/rucio/etc/client.key \
--v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
---name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
-```
-
 #### oidc
 
 ##### By using a service client to obtain a token via a client_credentials grant
 
 ```bash
 docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=oidc \
--e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e RUCIO_CFG_CLIENT_AUTH_TYPE=oidc \
+-e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT \
 -e OIDC_CLIENT_ID=<client_id> \
 -e OIDC_CLIENT_SECRET=<client_secret> \
 -e OIDC_TOKEN_ENDPOINT=<iam_token_endpoint> \
--e RUCIO_CFG_OIDC_SCOPE="openid profile offline_access rucio" \
--e RUCIO_CFG_OIDC_AUDIENCE="rucio https://wlcg.cern.ch/jwt/v1/any" \
+-e RUCIO_CFG_CLIENT_OIDC_SCOPE="openid profile offline_access rucio" \
+-e RUCIO_CFG_CLIENT_OIDC_AUDIENCE="rucio https://wlcg.cern.ch/jwt/v1/any" \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
 --name=rucio-task-manager rucio-task-manager:`cat BASE_RUCIO_CLIENT_TAG`
@@ -273,8 +221,8 @@ docker run --rm -it \
 
 ```bash
 docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=oidc \
--e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e RUCIO_CFG_CLIENT_AUTH_TYPE=oidc \
+-e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_VALUE="`cat ~/.oidc-agent/<client_name>`" \
 -e OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD=$OIDC_AGENT_AUTH_CLIENT_CFG_PASSWORD \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
@@ -286,8 +234,8 @@ docker run --rm -it \
 
 ```bash
 docker run --rm -it \
--e RUCIO_CFG_AUTH_TYPE=oidc \
--e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+-e RUCIO_CFG_CLIENT_AUTH_TYPE=oidc \
+-e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT \
 -e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
 -e TASK_FILE_PATH=etc/tasks/stubs.yml \
 -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \
@@ -316,8 +264,8 @@ e.g.
 
 ```yaml
 config:
-  RUCIO_CFG_RUCIO_HOST: https://rucio.srcdev.skao.int
-  RUCIO_CFG_AUTH_HOST: https://rucio.srcdev.skao.int
+  RUCIO_CFG_CLIENT_RUCIO_HOST: https://rucio.srcdev.skao.int
+  RUCIO_CFG_CLIENT_AUTH_HOST: https://rucio.srcdev.skao.int
 ```
 
 Secrets such as certificates and keys that are created on the cluster, e.g. 
@@ -403,8 +351,8 @@ This token can be retrieved by running a Rucio client container and authenticati
 `<account>`, with OIDC, e.g. using the SKAO Rucio prototype client:
 
 ```bash
-$ export RUCIO_CFG_ACCOUNT=<account>
-$ docker run -it --rm -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT -e RUCIO_CFG_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/ska-rucio-client:release-35.6.0
+$ export RUCIO_CFG_CLIENT_ACCOUNT=<account>
+$ docker run -it --rm -e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT -e RUCIO_CFG_CLIENT_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/ska-rucio-client:release-35.6.0
 $ rucio whoami
 ```
 
@@ -468,8 +416,8 @@ The procedure for creating a new tests is as follows:
     ```
     $ make build-skao
     $ docker run --rm -it \
-      -e RUCIO_CFG_AUTH_TYPE=oidc \
-      -e RUCIO_CFG_ACCOUNT=$RUCIO_CFG_ACCOUNT \
+      -e RUCIO_CFG_CLIENT_AUTH_TYPE=oidc \
+      -e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT \
       -e OIDC_ACCESS_TOKEN="$OIDC_ACCESS_TOKEN" \
       -e TASK_FILE_PATH=etc/tasks/<your_test_file>.yml \
       -v $RUCIO_TASK_MANAGER_ROOT:/opt/rucio-task-manager \

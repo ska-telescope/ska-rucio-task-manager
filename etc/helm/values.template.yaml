@@ -7,13 +7,12 @@ deployment:
   namespace: rucio-task-manager
 
 config:
-  RUCIO_CFG_RUCIO_HOST: https://rucio.srcdev.skao.int
-  RUCIO_CFG_AUTH_HOST: https://rucio.srcdev.skao.int
-  RUCIO_CFG_ACCOUNT: robbarnsley
-  RUCIO_CFG_AUTH_TYPE: oidc
-  RUCIO_CFG_USERNAME:
-  RUCIO_CFG_PASSWORD:
-  VOMS:
+  RUCIO_CFG_CLIENT_RUCIO_HOST: https://rucio.srcdev.skao.int
+  RUCIO_CFG_CLIENT_AUTH_HOST: https://rucio.srcdev.skao.int
+  RUCIO_CFG_CLIENT_ACCOUNT: robbarnsley
+  RUCIO_CFG_CLIENT_AUTH_TYPE: oidc
+  RUCIO_CFG_CLIENT_USERNAME:
+  RUCIO_CFG_CLIENT_PASSWORD:
   OIDC_TOKEN_ENDPOINT:
 
 secrets:
@@ -35,12 +34,6 @@ secrets:
   - name: KUBE_CONFIG_VALUE
     fromSecretName: kube
     fromSecretKey: cfg.dev
-  - name: RUCIO_CFG_CLIENT_CERT_VALUE
-    fromSecretName: rucio-cfg-client
-    fromSecretKey: certificate
-  - name: RUCIO_CFG_CLIENT_KEY_VALUE
-    fromSecretName: rucio-cfg-client
-    fromSecretKey: key
   - name: TASK_SYNC_IAM_RUCIO_CLIENT_SECRET
     fromSecretName: task-sync-iam-rucio
     fromSecretKey: client_secret
