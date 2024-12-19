@@ -2,7 +2,7 @@ dateparser
 elasticsearch==8.7.0
 fts3
 kubernetes
-M2crypto==0.33
+M2crypto
 numpy
 python-crontab
 pyyaml
