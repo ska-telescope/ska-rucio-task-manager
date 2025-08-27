@@ -169,7 +169,7 @@ class SyncAndAggregateRucioTransferEvents(Task):
         # Add FTS information, if requested.
         if self.ftsQuery:
             access_token = os.environ.get(self.ftsAccessTokenEnvvar)                         # TODO: only OIDC
-            ftsContext = fts3.Context(self.ftsEndpoint, access_token=access_token)           # TODO: only OIDC
+            ftsContext = fts3.Context(self.ftsEndpoint, fts_access_token=access_token)       # TODO: only OIDC
 
             self.logger.info("Threading requests to FTS for aggregated transfers")
             for threadIdx in range(0, len(aggregatedTransfers), self.maxNumberOfConcurrentThreads):
