@@ -189,7 +189,8 @@ class TestUpload(Task):
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database...")
-                    es = Elasticsearch([database['uri']])
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
                     for entry in entries:
                         es.index(index=database["index"], id=entry['name'], body=entry)
 

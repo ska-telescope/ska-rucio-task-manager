@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 import dateparser
 import json
@@ -56,7 +57,8 @@ class ProbesServiceHeartbeats(Task):
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database...")
-                    es = Elasticsearch([database['uri']])
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
                     for svc in self.services:
                         es.index(
                             index=database["index"],

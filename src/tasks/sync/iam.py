@@ -97,6 +97,7 @@ class SyncIndigoIAMRucio(Task):
             self.logger.info("Checking for OS env BEARER_TOKEN...")
             if os.environ.get('BEARER_TOKEN'):
                 access_token = os.environ.get('BEARER_TOKEN')
+                self.logger.info("Access token obtained.")
             else:
                 self.logger.info("Failed to obtain access token.")
         if not access_token:
@@ -135,8 +136,10 @@ class SyncIndigoIAMRucio(Task):
 
         # Try find a Rucio account with a matching username. Add an OIDC identity if found.
         #
+        n_skipped = 0
         for idx, account in enumerate(users_rucio):
             if account['account'] in self.skip_accounts or account['account'] in self.service_accounts:
+                n_skipped = n_skipped + 1
                 continue
             iam_user = [entry for entry in users_iam if entry['username'] == account['account']]
             if iam_user:
@@ -146,7 +149,7 @@ class SyncIndigoIAMRucio(Task):
                                        if identity['identity'] == user_identity and identity['type'] == 'OIDC']
                 if not existing_identities:
                     self.logger.info('({}/{}) Adding OIDC identity for user {}'.format(
-                        idx + 1, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts),
+                        idx + 1 - n_skipped, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts),
                         account['account']))
                     if not self.dry_run:
                         rucio.add_identity(account=account['account'], identity=user_identity, authtype='OIDC',
@@ -155,11 +158,12 @@ class SyncIndigoIAMRucio(Task):
                                     auth_type='oidc')
                 else:
                     self.logger.info('({}/{}) Skipping adding OIDC identity for user {} [exists]'.format(
-                        idx + 1, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts),
+                        idx + 1 - n_skipped, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts),
                         account['account']))
             else:
                 self.logger.info('({}/{}) Skipping adding OIDC identity for user [does not exist in IAM]'.format(
-                    idx + 1, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts), account['account']))
+                    idx + 1 - n_skipped, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts),
+                    account['account']))
 
     def add_service_accounts(self, accounts):
         rucio = Client(logger=self.logger)
@@ -404,11 +408,14 @@ class SyncIndigoIAMRucio(Task):
         #
         self.logger.info("Updating accounts...")
 
+        n_skipped = 0
         for idx, account in enumerate(users_rucio):
             if account['account'] in self.skip_accounts or account['account'] in self.service_accounts:
+                n_skipped = n_skipped + 1
                 continue
             self.logger.info('({}/{}) Considering changes for user {}'.format(
-                idx + 1, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts), account['account']))
+                idx + 1 - n_skipped, len(users_rucio)-len(self.skip_accounts)-len( self.service_accounts),
+                account['account']))
             if not self.dry_run:
                 try:
                     #rucio_user = [entry for entry in users_iam if entry['account'] == account][0]
@@ -552,7 +559,8 @@ class SyncIndigoIAMRucio(Task):
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database...")
-                    es = Elasticsearch([database['uri']])
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
                     for event in self.events:
                         es.index(index=database["index"], id=str(uuid.uuid4()), body=event)
 
