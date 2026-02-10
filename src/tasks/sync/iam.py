@@ -229,7 +229,6 @@ class SyncIndigoIAMRucio(Task):
                 idx + 1, len(accounts), account))
             if not self.dry_run:
                 attributes = list(rucio.list_account_attributes(account))[0]
-
                 # sync attributes etc.
                 # attr: sign-gcs
                 exists = [entry for entry in attributes if entry['key'] == 'sign-gcs']
@@ -304,10 +303,9 @@ class SyncIndigoIAMRucio(Task):
         accounts_not_intersect = set([entry['account'] for entry in users_rucio]) ^ \
                                  set([entry['username'] for entry in users_iam])
         for user in self.skip_accounts:             # skip skipped accounts
-            accounts_not_intersect.remove(user)
+            accounts_not_intersect.discard(user)
         for account in self.service_accounts:       # skip service accounts
-            accounts_not_intersect.remove(account)
-
+            accounts_not_intersect.discard(account)
         for idx, account in enumerate(accounts_not_intersect):
             if account in [account['account'] for account in users_rucio]:  # user in Rucio but not in IAM
                 self.logger.info('({}/{}) Deleting account for user {} [not in IAM]'.format(
