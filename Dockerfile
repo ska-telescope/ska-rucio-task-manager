@@ -15,12 +15,13 @@ RUN yum -y install wget vim python3 python3-devel openssl-devel swig gcc-c++ oid
 # fix for /bin/bin /in oidc-agent-service
 RUN sed -i 's/bin\/bin/bin/' /usr/bin/oidc-agent-service
 
-RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install --upgrade pip wheel \
+ && python3 -m pip install "setuptools<70"
 
 COPY requirements.txt /tmp/requirements.txt
 
 # additional indices for ingestor and the rucio-extended-client
-RUN python3 -m pip install -r /tmp/requirements.txt --extra-index-url https://gitlab.com/api/v4/projects/51600992/packages/pypi/simple --extra-index-url https://gitlab.com/api/v4/projects/39600235/packages/pypi/simple
+RUN python3 -m pip install --no-build-isolation -r /tmp/requirements.txt --extra-index-url https://gitlab.com/api/v4/projects/51600992/packages/pypi/simple --extra-index-url https://gitlab.com/api/v4/projects/39600235/packages/pypi/simple
 
 COPY --chown=user . ${RUCIO_TASK_MANAGER_ROOT}
 

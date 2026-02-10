@@ -37,7 +37,7 @@ reports-dev:
       - STFC_STORM
     slack:
       bot_token:
-      channel: '#skao-datalake-robot'
+      channel: '#skao-datalake-robot-test'
     success_ratio_thresholds:
       base:
         icon: ":red_circle:"
