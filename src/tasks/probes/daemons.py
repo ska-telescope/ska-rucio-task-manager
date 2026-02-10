@@ -1,3 +1,4 @@
+import os
 import datetime
 import dateparser
 from kubernetes import client, config
@@ -58,7 +59,8 @@ class ProbesDaemons(Task):
                     for database in self.outputDatabases:
                         if database["type"] == "es":
                             self.logger.info("Sending output to ES database...")
-                            es = Elasticsearch([database['uri']])
+                            auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                            es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
                             es.index(
                                 index=database["index"],
                                 id=str(uuid.uuid4()),

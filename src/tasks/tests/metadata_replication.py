@@ -346,7 +346,8 @@ class MetadataReplication(Task):
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database...")
-                    es = Elasticsearch([database['uri']])
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
                     es.index(index=database["index"], id=es_entry['file_name'], body=es_entry)
 
         self.toc()

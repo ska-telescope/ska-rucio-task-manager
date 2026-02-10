@@ -262,7 +262,8 @@ class TestIngestionLocal(Task):
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database: {}...".format(database['uri']))
-                    es = Elasticsearch([database['uri']])
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
                     es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()

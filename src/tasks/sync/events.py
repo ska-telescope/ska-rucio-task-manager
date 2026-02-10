@@ -104,7 +104,8 @@ class SyncAndAggregateRucioTransferEvents(Task):
             self.logger.critical(repr(e))
             return False
 
-        es = Elasticsearch([self.esUri])
+        auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+        es = Elasticsearch([self.usUri], basic_auth=auth if all(auth) else None)
 
         # Query ES database for documents.
         #
@@ -193,7 +194,8 @@ class SyncAndAggregateRucioTransferEvents(Task):
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database...")
-                    es = Elasticsearch([database['uri']])
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
 
                     # create a generator that yields transfer entries
                     def bulkDataGenerator():

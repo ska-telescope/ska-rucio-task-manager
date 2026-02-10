@@ -72,7 +72,8 @@ class ReportLast24hRucioEventsToSlack(Task):
 
         # Retrieve data for the report from the database.
         #
-        es = Elasticsearch([self.esUri])
+        auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+        es = Elasticsearch([self.esUri], basic_auth=auth if all(auth) else None)
 
         # Evaluate datetimes so they're absolute and not relative
         esSearchRangeGTEAbsNice = dateparser.parse(self.esSearchRangeGTE).strftime("%d-%m-%Y %H:%M")
