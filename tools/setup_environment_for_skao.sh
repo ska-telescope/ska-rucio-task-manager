@@ -27,7 +27,7 @@ export RUCIO_CFG_CLIENT_OIDC_AUDIENCE=$RUCIO_CFG_CLIENT_OIDC_AUDIENCE
 echo "RUCIO_CFG_CLIENT_OIDC_AUDIENCE set to \"$RUCIO_CFG_CLIENT_OIDC_AUDIENCE\""
 
 # Get a token
-docker run -itd --name ska-rucio-client --rm -e PYTHONWARNINGS="ignore:Unverified HTTPS request" -e RUCIO_CFG_CLIENT_OIDC_SCOPE="$RUCIO_CFG_CLIENT_OIDC_SCOPE" -e RUCIO_CFG_CLIENT_OIDC_AUDIENCE="$RUCIO_CFG_CLIENT_OIDC_AUDIENCE" -e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT -e RUCIO_CFG_CLIENT_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-client:release-35.6.0
+docker run -itd --name ska-rucio-client --rm -e PYTHONWARNINGS="ignore:Unverified HTTPS request" -e RUCIO_CFG_CLIENT_OIDC_SCOPE="$RUCIO_CFG_CLIENT_OIDC_SCOPE" -e RUCIO_CFG_CLIENT_OIDC_AUDIENCE="$RUCIO_CFG_CLIENT_OIDC_AUDIENCE" -e RUCIO_CFG_CLIENT_ACCOUNT=$RUCIO_CFG_CLIENT_ACCOUNT -e RUCIO_CFG_CLIENT_AUTH_TYPE=oidc registry.gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-client/rucio-client-core:38.3.0
 
 docker exec -it ska-rucio-client rucio whoami && export BEARER_TOKEN=`docker exec -it ska-rucio-client cat /tmp/user/.rucio_user/auth_token_for_account_$RUCIO_CFG_CLIENT_ACCOUNT`
 docker stop ska-rucio-client

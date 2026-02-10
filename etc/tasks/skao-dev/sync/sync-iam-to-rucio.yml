@@ -6,7 +6,7 @@ sync-iam-rucio-dev:
     args:
     kwargs:
       oidc_issuer_url: https://ska-iam.stfc.ac.uk/
-      client_id: 05194e43-b356-447f-825f-6377cdaa48a5
+      client_id: 
       client_secret:
       rucio_user_iam_groups:
         - services/rucio/roles/user
