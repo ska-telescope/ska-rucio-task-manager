@@ -75,6 +75,10 @@ class SyncIndigoIAMRucio(Task):
         client_credentials grant against IAM, otherwise it will check the (rucio) environment.
         """
         access_token = None
+        if not self.admin_client_id:
+            self.admin_client_id = os.environ.get('OIDC_CLIENT_ID')
+        if not self.admin_client_secret:
+            self.admin_client_secret = os.environ.get('OIDC_CLIENT_SECRET')
         if self.admin_client_id and self.admin_client_secret:
             self.logger.info("Attempting to obtain access token via client_credentials grant...")
             request_data = {
