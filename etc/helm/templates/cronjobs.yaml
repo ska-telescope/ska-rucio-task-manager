@@ -8,6 +8,7 @@ spec:
   schedule: "{{ $val_cronjob.minute }} {{ $val_cronjob.hour }} {{ $val_cronjob.day }} {{ $val_cronjob.month }} {{ $val_cronjob.weekday }}"
   jobTemplate:
     spec:
+      backoffLimit: {{ $val_cronjob.backoffLimit | default 3 }}
       template:
         spec:
           containers:
