@@ -8,6 +8,7 @@ ENV RUCIO_TASK_MANAGER_ROOT /opt/rucio-task-manager
 USER root
 
 # repo for oidc-agent
+RUN yum -y install wget
 RUN wget https://repo.data.kit.edu/data-kit-edu-centos7.repo -O /etc/yum.repos.d/data-kit-edu-centos7.repo
 
 RUN yum -y install wget vim python3 python3-devel openssl-devel swig gcc-c++ oidc-agent jq
