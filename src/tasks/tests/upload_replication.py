@@ -1,6 +1,7 @@
 import copy
 import os
 import random
+from datetime import datetime
 
 from rucio.client.uploadclient import Client, UploadClient
 
@@ -47,6 +48,16 @@ class TestUploadReplication(Task):
         # Create a dataset to house the data, named with today's date
         # and scope <scope>.
         #
+        test_id = "upload_replication_{}".format(datetime.now().isoformat())
+        entry = {
+            "task_name": self.taskName,
+            "name": test_id,
+            "scope": self.scope,
+            "n_files": self.nFiles,
+            "lifetime": self.lifetime,
+            "attempted_at": datetime.now().isoformat(),
+        }
+
         datasetDID = createCollection(self.logger.name, self.scope)
 
         # Iteratively upload a file of size from <sizes> to each
@@ -140,10 +151,16 @@ class TestUploadReplication(Task):
 
         # Push task output to databases.
         #
+        entry["succeeded_at"] = datetime.now().isoformat()
+        entry["state"] = "UPLOAD-REPLICATION-COMPLETED"
+
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
-                    self.logger.info("Nothing to pass to database, skipping...")
+                    self.logger.info("Sending output to ES database: {}...".format(database['uri']))
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME", ""), os.getenv("ELASTICSEARCH_PASSWORD", ""))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
+                    es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
@@ -185,6 +202,16 @@ class TestUploadReplicationRandom(Task):
         # Create a dataset to house the data, named with today's date
         # and scope <scope>.
         #
+        test_id = "upload_replication_random_{}".format(datetime.now().isoformat())
+        entry = {
+            "task_name": self.taskName,
+            "name": test_id,
+            "scope": self.scope,
+            "n_files": self.nFiles,
+            "lifetime": self.lifetime,
+            "attempted_at": datetime.now().isoformat(),
+        }
+
         datasetDID = createCollection(self.logger.name, self.scope)
 
         # Upload a file of size from <sizes> to a random RSE, attach to
@@ -277,10 +304,16 @@ class TestUploadReplicationRandom(Task):
 
         # Push task output to databases.
         #
+        entry["succeeded_at"] = datetime.now().isoformat()
+        entry["state"] = "UPLOAD-REPLICATION-RANDOM-COMPLETED"
+
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
-                    self.logger.info("Nothing to pass to database, skipping...")
+                    self.logger.info("Sending output to ES database: {}...".format(database['uri']))
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME", ""), os.getenv("ELASTICSEARCH_PASSWORD", ""))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
+                    es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
