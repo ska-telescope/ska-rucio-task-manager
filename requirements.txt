@@ -6,7 +6,7 @@ M2crypto
 numpy
 python-crontab
 pyyaml
-rucio-clients
+rucio-clients==41.0.0
 ingestor
 slackclient
 uuid
