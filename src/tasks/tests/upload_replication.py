@@ -25,6 +25,8 @@ class TestUploadReplication(Task):
         self.outputDatabases = None
         self.taskName = None
         self.namingPrefix = None
+        self.ebId = None
+        self.productId = None
 
     def run(self, args, kwargs):
         super().run()
@@ -39,6 +41,8 @@ class TestUploadReplication(Task):
             self.outputDatabases = kwargs["output"]["databases"]
             self.taskName = kwargs["task_name"]
             self.namingPrefix = kwargs.get("naming_prefix", "")
+            self.ebId = kwargs.get("eb_id", "test_eb_001")
+            self.productId = kwargs.get("product_id", "test_prod_001")
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for task.")
             self.logger.critical(repr(e))
@@ -62,7 +66,8 @@ class TestUploadReplication(Task):
                 for idx in range(self.nFiles):
                     # Generate random file of size <size>
                     f = generateRandomFile(size, prefix=self.namingPrefix)
-                    fileDID = "{}:{}".format(self.scope, os.path.basename(f.name))
+                    didName = "{}.{}/{}".format(self.ebId, self.productId, os.path.basename(f.name))
+                    fileDID = "{}:{}".format(self.scope, didName)
 
                     # Upload to <rseSrc>
                     self.logger.debug("Uploading file {} of {}".format(idx + 1, self.nFiles))
@@ -72,6 +77,7 @@ class TestUploadReplication(Task):
                             "path": f.name,
                             "rse": rseSrc,
                             "did_scope": self.scope,
+                            "did_name": didName,
                             "lifetime": self.lifetime,
                             "register_after_upload": True,
                             "force_scheme": None,
@@ -163,6 +169,8 @@ class TestUploadReplicationRandom(Task):
         self.outputDatabases = None
         self.taskName = None
         self.namingPrefix = None
+        self.ebId = None
+        self.productId = None
 
     def run(self, args, kwargs):
         super().run()
@@ -177,6 +185,8 @@ class TestUploadReplicationRandom(Task):
             self.outputDatabases = kwargs["output"]["databases"]
             self.taskName = kwargs["task_name"]
             self.namingPrefix = kwargs.get("naming_prefix", "")
+            self.ebId = kwargs.get("eb_id", "test_eb_001")
+            self.productId = kwargs.get("product_id", "test_prod_001")
         except KeyError as e:
             self.logger.critical("Could not find necessary kwarg for task.")
             self.logger.critical(repr(e))
@@ -203,7 +213,8 @@ class TestUploadReplicationRandom(Task):
 
             # Generate random file of size <size>
             f = generateRandomFile(size, prefix=self.namingPrefix)
-            fileDID = "{}:{}".format(self.scope, os.path.basename(f.name))
+            didName = "{}.{}/{}".format(self.ebId, self.productId, os.path.basename(f.name))
+            fileDID = "{}:{}".format(self.scope, didName)
 
             # Upload to <rseSrc>
             self.logger.debug("Uploading file {} of {}".format(idx + 1, self.nFiles))
@@ -212,6 +223,7 @@ class TestUploadReplicationRandom(Task):
                     "path": f.name,
                     "rse": rseSrc,
                     "did_scope": self.scope,
+                    "did_name": didName,
                     "lifetime": self.lifetime,
                     "register_after_upload": True,
                     "force_scheme": None,
