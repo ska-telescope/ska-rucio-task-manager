@@ -482,8 +482,8 @@ class TestIngestionRemoteNotification(Task):
     Instead of supplying per-file .meta files (i.e. using the Rucio metadata backend directly), this test uses
     the ska-src-mm-notification library to scan a local source folder, generates an ingest notification file
     using the NotificationBuilder and supplies both the data files and the notification file to the running
-    ingestor's ingest-folder (staging area). The ingestor instance is assumed to already be running and
-    monitoring the default ingest-folder.
+    ingestor's staging area. The ingestor instance is assumed to already be running and
+    monitoring the default staging area.
     """
 
     DEFAULT_INGEST_DIR = "/tmp/ingest"
@@ -497,9 +497,9 @@ class TestIngestionRemoteNotification(Task):
         - prefix: Allows a custom prefix for the file names.
         - sizes (array or int): The approximate sizes of the FITS files (bytes) to be created.
         - source_dir: The local source folder where files are written and scanned by the notification lib.
-        - ingest_dir: The base directory of the running ingestion service (the ingest-folder). Files are
+        - ingest_dir: The base directory of the running ingestion service (the staging area). Files are
             supplied to the staging area within this directory. Defaults to the ingestor's default
-            ingest-folder (/tmp/ingest).
+            staging area (/tmp/ingest).
         - notification_file_suffix: The notification file suffix expected by the running ingestor.
         - project_id: The project identifier to set in the notification file.
         - n_retries: The number of times to poll for files to be picked up and ingested.
@@ -645,7 +645,7 @@ class TestIngestionRemoteNotification(Task):
 
         # Scan the source folder with the notification lib and generate an ingest notification file. The
         # staging_base_url is set to the location the files will have once supplied to the ingestor's
-        # ingest-folder so access_urls in the notification resolve correctly:
+        # staging area so access_urls in the notification resolve correctly:
         staging_dir = os.path.join(self.ingest_dir, 'staging', self.scope)
         builder = (
             NotificationBuilder()
@@ -683,7 +683,7 @@ class TestIngestionRemoteNotification(Task):
         # Derive the DIDs the ingestor is expected to register from the notification content:
         dataset_dids, file_dids = self.get_expected_dids(notification_dict)
 
-        # Supply both the data files and the notification file to the ingestor's ingest-folder. The
+        # Supply both the data files and the notification file to the ingestor's staging area. The
         # notification file is copied last so the ingestor only picks the ingest up once all the data files
         # are in place:
         os.makedirs(staging_dir, exist_ok=True)
