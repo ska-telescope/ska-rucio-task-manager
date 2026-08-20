@@ -6,8 +6,9 @@ M2crypto
 numpy
 python-crontab
 pyyaml
-rucio-clients
-ska-src-mm-notification
+rucio-clients==41.0.0
+rucio==41.0.0
+#ingestor
 slackclient
 uuid
 astropy
