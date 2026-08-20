@@ -1,0 +1,23 @@
+test-ingestion-notification:
+  description: "Test notification-based ingestion using an existing instance of the ska-src-dm-di-ingestor service."
+  module_name: "tasks.tests.ingestion"
+  class_name: "TestIngestionRemoteNotification"
+  enabled: true
+  args:
+  kwargs:
+    task_name: "ingestion_notification_test"
+    n_files: 3
+    scope: "srcnet_test.comm"
+    prefix: "test1"
+    sizes: 100000
+    source_dir: "/tmp/ingest-source"
+    ingest_dir: "/tmp/ingest"
+    notification_file_suffix: "ingest.notification"
+    project_id: "rucio-task-manager-test"
+    n_retries: 5
+    delay_s: 5
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.ingestion-notification

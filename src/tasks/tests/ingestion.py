@@ -1,12 +1,19 @@
 import json
 import os
+import random
+import shutil
 import subprocess
 import time
+import uuid
 from datetime import datetime
+from pathlib import Path
 
+import numpy as np
+from astropy.io import fits
 from elasticsearch import Elasticsearch
 from rucio.client.didclient import DIDClient
 from rucio.common.exception import DataIdentifierNotFound
+from ska_src_mm_notification import NotificationBuilder
 
 from tasks.task import Task
 from utility import bcolors, generateRandomFile, getObsCoreMetadataDict
@@ -463,6 +470,355 @@ class TestIngestionRemote(Task):
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database...")
                     es = Elasticsearch([database['uri']])
+                    es.index(index=database["index"], id=entry['name'], body=entry)
+
+        self.toc()
+        self.logger.info("Finished in {}s".format(round(self.elapsed)))
+
+
+class TestIngestionRemoteNotification(Task):
+    """ Test notification-based ingestion using an existing instance of the ska-src-dm-di-ingestor service.
+
+    Instead of supplying per-file .meta files (i.e. using the Rucio metadata backend directly), this test uses
+    the ska-src-mm-notification library to scan a local source folder, generates an ingest notification file
+    using the NotificationBuilder and supplies both the data files and the notification file to the running
+    ingestor's ingest-folder (staging area). The ingestor instance is assumed to already be running and
+    monitoring the default ingest-folder.
+    """
+
+    DEFAULT_INGEST_DIR = "/tmp/ingest"
+
+    def __init__(self, logger):
+        super().__init__(logger)
+        """
+        Initializes the class with the following attributes:
+        - n_files: The number of files to be created in the local source folder.
+        - scope: The Rucio scope (namespace) files will be ingested to.
+        - prefix: Allows a custom prefix for the file names.
+        - sizes (array or int): The approximate sizes of the FITS files (bytes) to be created.
+        - source_dir: The local source folder where files are written and scanned by the notification lib.
+        - ingest_dir: The base directory of the running ingestion service (the ingest-folder). Files are
+            supplied to the staging area within this directory. Defaults to the ingestor's default
+            ingest-folder (/tmp/ingest).
+        - notification_file_suffix: The notification file suffix expected by the running ingestor.
+        - project_id: The project identifier to set in the notification file.
+        - n_retries: The number of times to poll for files to be picked up and ingested.
+        - delay_s: The interval at which to poll at in seconds.
+
+        :param logger: The logger instance to be used for logging.
+        """
+        self.task_name = None
+        self.n_files = None
+        self.scope = None
+        self.prefix = None
+        self.sizes = None
+        self.source_dir = None
+        self.ingest_dir = None
+        self.notification_file_suffix = None
+        self.project_id = None
+        self.n_retries = None
+        self.delay_s = None
+        self.outputDatabases = None
+
+    def create_fits_file(self, file_path, size, target_ra, target_dec):
+        """ Create a WCS-valid FITS cube of approximately <size> bytes so the notification lib's FITS plugin
+        can extract metadata from it. """
+        nx = ny = 32
+        nz = max(1, int(size) // (nx * ny * 4))
+        data = np.zeros((nz, ny, nx), dtype=np.float32)
+        hdu = fits.PrimaryHDU(data=data)
+        header = hdu.header
+
+        # WCS keywords for spatial axes (RA/DEC)
+        header["CTYPE1"] = ("RA---SIN", "Right Ascension")
+        header["CRVAL1"] = (target_ra, "Reference RA (degrees)")
+        header["CRPIX1"] = (nx / 2.0, "Reference pixel")
+        header["CDELT1"] = (-0.001, "Degrees per pixel")
+        header["CUNIT1"] = ("deg", "Units of coordinate")
+        header["CTYPE2"] = ("DEC--SIN", "Declination")
+        header["CRVAL2"] = (target_dec, "Reference DEC (degrees)")
+        header["CRPIX2"] = (ny / 2.0, "Reference pixel")
+        header["CDELT2"] = (0.001, "Degrees per pixel")
+        header["CUNIT2"] = ("deg", "Units of coordinate")
+
+        # Spectral axis (Frequency)
+        header["CTYPE3"] = ("FREQ", "Frequency")
+        header["CRVAL3"] = (1.4e9, "Reference frequency (Hz)")
+        header["CRPIX3"] = (1.0, "Reference pixel")
+        header["CDELT3"] = (1e6, "Frequency increment (Hz)")
+        header["CUNIT3"] = ("Hz", "Units of coordinate")
+
+        # Observation metadata
+        header["BUNIT"] = ("Jy/beam", "Units of pixel values")
+        header["TELESCOP"] = ("SKA", "Telescope name")
+        header["INSTRUME"] = ("SKA-MID", "Instrument name")
+        header["OBJECT"] = ("TEST_TARGET", "Target source")
+        header["DATE-OBS"] = ("2024-06-15T10:30:00", "Start of observation")
+        header["DATE-END"] = ("2024-06-15T11:30:00", "End of observation")
+        header["EXPTIME"] = (3600.0, "Exposure time in seconds")
+
+        hdu.writeto(file_path, overwrite=True)
+        return file_path
+
+    def get_expected_dids(self, notification_dict):
+        """ Derive the dataset and file DIDs that the ingestor will register in Rucio from the notification
+        content (identifier format: namespace:eb_id.product_id[/virtual_path]). """
+        dataset_dids = []
+        file_dids = []
+        for observation in notification_dict.get("observations", []):
+            scope = observation["obs_id"]
+            for scheduling_block in observation.get("scheduling_blocks", []):
+                for execution_block in scheduling_block.get("execution_blocks", []):
+                    for data_product in execution_block.get("data_products", []):
+                        dataset_name = "{}.{}".format(
+                            execution_block["eb_id"], data_product["product_id"])
+                        dataset_dids.append({"scope": scope, "name": dataset_name})
+                        for artifact in data_product.get("artifacts", []):
+                            path_to_parent = (artifact.get("path_to_parent") or "").lstrip("./")
+                            virtual_path = os.path.join(
+                                "/" + path_to_parent, os.path.basename(artifact["access_url"]))
+                            file_dids.append({
+                                "scope": scope,
+                                "name": "{}{}".format(dataset_name, virtual_path)
+                            })
+        return dataset_dids, file_dids
+
+    def run(self, args, kwargs):
+        super().run()
+        self.tic()
+        try:
+            self.task_name = kwargs["task_name"]
+            self.n_files = kwargs["n_files"]
+            self.scope = kwargs["scope"]
+            self.prefix = kwargs["prefix"]
+            self.sizes = kwargs["sizes"]
+            self.source_dir = kwargs["source_dir"]
+            self.ingest_dir = kwargs.get("ingest_dir", self.DEFAULT_INGEST_DIR)
+            self.notification_file_suffix = kwargs.get("notification_file_suffix", "ingest.notification")
+            self.project_id = kwargs.get("project_id", "rucio-task-manager-test")
+            self.n_retries = kwargs["n_retries"]
+            self.delay_s = kwargs["delay_s"]
+            self.outputDatabases = kwargs["output"]["databases"]
+        except KeyError as e:
+            self.logger.critical("Could not find necessary kwarg for test.")
+            self.logger.critical(repr(e))
+            return False
+
+        # Validate kwargs
+        if isinstance(self.sizes, list):
+            if len(self.sizes) != self.n_files:
+                self.logger.critical(
+                    "File sizes array is a different length to n_files"
+                )
+                return False
+        elif isinstance(self.sizes, int):
+            self.sizes = [self.sizes] * self.n_files
+        else:
+            self.logger.critical("File sizes should either be a list or int")
+            return False
+
+        # Set up identifiers for this test run:
+        eb_id = "eb-{}".format(uuid.uuid4().hex[:8])
+        sbd_id = "sbd-{}".format(uuid.uuid4().hex[:8])
+
+        # Set up log message:
+        test_id = "ingestion_notification_test_{}".format(datetime.now().isoformat())
+        entry = {
+            "task_name": self.task_name,
+            "name": test_id,
+            "scope": self.scope,
+            "n_files": self.n_files,
+            "eb_id": eb_id,
+            "attempted_at": datetime.now().isoformat(),
+        }
+
+        # Generate FITS files of (approximately) specified sizes in a unique subdirectory of the local
+        # source folder:
+        run_source_dir = os.path.join(self.source_dir, eb_id)
+        os.makedirs(run_source_dir, exist_ok=True)
+        target_ra, target_dec = random.uniform(0, 360), random.uniform(-60, 60)
+        for idx in range(self.n_files):
+            file_path = os.path.join(
+                run_source_dir, "{}_{}_{}.fits".format(self.prefix, eb_id, idx))
+            self.create_fits_file(file_path, self.sizes[idx], target_ra, target_dec)
+            self.logger.info("Created source file: {}".format(file_path))
+
+        # Scan the source folder with the notification lib and generate an ingest notification file. The
+        # staging_base_url is set to the location the files will have once supplied to the ingestor's
+        # ingest-folder so access_urls in the notification resolve correctly:
+        staging_dir = os.path.join(self.ingest_dir, 'staging', self.scope)
+        builder = (
+            NotificationBuilder()
+            .scan_directory(run_source_dir, staging_base_url="file://{}".format(staging_dir))
+            .set_project_info(
+                project_id=self.project_id,
+                group_ids=["{}_group".format(self.project_id)],
+                project_title="Rucio task-manager ingestion test",
+                pi_name="rucio-task-manager",
+                data_rights="private",
+            )
+            .set_observation_info(
+                obs_id=self.scope,
+                obs_title="Rucio task-manager test observation",
+                instrument_name="SKA-Mid",
+                facility_name="Square Kilometre Array Observatory",
+            )
+            .set_scheduling_block_info(sbd_id=sbd_id)
+            .set_execution_block_info(eb_id=eb_id)
+        )
+        notification = builder.build()
+
+        # Write the notification to a file, patching in the required PostgreSQL NOT NULL fields:
+        notification_dict = notification.to_notification_dict()
+        for observation in notification_dict.get("observations", []):
+            observation["obs_collection"] = self.scope
+            observation["obs_publisher_did"] = "ivo://skao.int/{}/{}".format(self.scope, eb_id)
+        notification_name = "{}_{}.{}".format(self.prefix, eb_id, self.notification_file_suffix)
+        notification_path = os.path.join(run_source_dir, notification_name)
+        with open(notification_path, 'w') as notification_file:
+            json.dump(notification_dict, notification_file, indent=2)
+        self.logger.info("Written notification: {}".format(notification_path))
+        entry["notification"] = notification_name
+
+        # Derive the DIDs the ingestor is expected to register from the notification content:
+        dataset_dids, file_dids = self.get_expected_dids(notification_dict)
+
+        # Supply both the data files and the notification file to the ingestor's ingest-folder. The
+        # notification file is copied last so the ingestor only picks the ingest up once all the data files
+        # are in place:
+        os.makedirs(staging_dir, exist_ok=True)
+        for file_name in sorted(os.listdir(run_source_dir)):
+            if file_name == notification_name:
+                continue
+            shutil.copy2(os.path.join(run_source_dir, file_name), staging_dir)
+            self.logger.info("Supplied data file {} to {}".format(file_name, staging_dir))
+        shutil.copy2(notification_path, staging_dir)
+        self.logger.info("Supplied notification file {} to {}".format(notification_name, staging_dir))
+
+        # Poll (every <delay_s> sec) for the notification to be fully processed by the ingestion service
+        # (i.e. to appear in the processed_metadata area):
+        max_retries = self.n_retries
+        processed_dir = os.path.join(self.ingest_dir, 'processed_metadata')
+        processed = False
+        retries = 0
+        while retries < max_retries:
+            if list(Path(processed_dir).rglob(notification_name)):
+                self.logger.info("Notification processed: {}".format(notification_name))
+                processed = True
+                break
+            self.logger.info(
+                "Waiting for ingestor to process notification {}...".format(notification_name)
+            )
+            time.sleep(self.delay_s)
+            retries += 1
+        if not processed:
+            self.logger.critical(
+                "Notification {} not processed after {} sec".format(
+                    notification_name,
+                    retries * self.delay_s
+                )
+            )
+
+        # Poll for file DIDs (every <delay_s> sec) to be added by the ingestion service:
+        did_client = DIDClient()
+        succeeded = 0
+        failed = 0
+        for did in file_dids:
+            retries = 0
+            while retries < max_retries:
+                try:
+                    found = did_client.get_did(did["scope"], did["name"])
+                    if found:
+                        self.logger.info("DID found: {}".format(found))
+                        succeeded += 1
+                        break
+                except DataIdentifierNotFound:
+                    # Likely because the ingestion service has not yet picked up the
+                    # newly created files
+                    did_name = "{}:{}".format(did["scope"], did["name"])
+                    self.logger.info(
+                        "Waiting for ingestion of DID {}...".format(did_name)
+                    )
+                    time.sleep(self.delay_s)
+                    retries += 1
+                    if retries == max_retries:
+                        self.logger.critical(
+                            "DID {} not found after {} sec".format(
+                                did_name,
+                                retries * self.delay_s
+                            )
+                        )
+                        failed += 1
+                        break
+                except Exception as e:
+                    self.logger.critical(
+                        "Error encountered when polling for data {}".format(e)
+                    )
+                    failed += 1
+                    break
+
+        # Check metadata has been set on the dataset DIDs (metadata is set at the dataset level by the
+        # ingestion service's metadata backend):
+        for did in dataset_dids:
+            did_name = "{}:{}".format(did["scope"], did["name"])
+            try:
+                retrieved_meta = did_client.get_metadata(
+                    did["scope"],
+                    did["name"],
+                    plugin="POSTGRES_JSON"
+                )
+                expected_obs_publisher_did = "ivo://skao.int/{}".format(did["name"])
+                if retrieved_meta.get("obs_id") != self.scope or \
+                        retrieved_meta.get("obs_publisher_did") != expected_obs_publisher_did:
+                    self.logger.critical(
+                        "Metadata mismatch for dataset DID: {}".format(did_name)
+                    )
+                    failed += 1
+                    continue
+                self.logger.info(
+                    "Dataset DID found with expected metadata: {}".format(did_name)
+                )
+            except Exception as e:
+                self.logger.critical(
+                    "Error encountered when retrieving metadata for dataset {}: {}".format(did_name, e)
+                )
+                failed += 1
+
+        if processed and failed == 0:
+            self.logger.info(
+                "{}Successfully ingested {} / {} files.{}".format(
+                    bcolors.OKGREEN,
+                    succeeded,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
+            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-SUCCESSFUL"
+            entry["success_rate"] = 1.0
+            entry["is_ingestion_successful"] = 1
+        else:
+            self.logger.info(
+                "{}Failed to ingest {} / {} files.{}".format(
+                    bcolors.FAIL,
+                    failed,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
+            entry["failed_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-FAILED"
+            entry["success_rate"] = succeeded / (succeeded + failed) if (succeeded + failed) else 0.0
+            entry["is_ingestion_successful"] = 0
+
+        # Push task output to databases.
+        #
+        if self.outputDatabases is not None:
+            for database in self.outputDatabases:
+                if database["type"] == "es":
+                    self.logger.info("Sending output to ES database: {}...".format(database['uri']))
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
                     es.index(index=database["index"], id=entry['name'], body=entry)
 
         self.toc()

@@ -3,12 +3,12 @@ ARG BASE_RUCIO_CLIENT_TAG
 
 FROM $BASE_RUCIO_CLIENT_IMAGE:$BASE_RUCIO_CLIENT_TAG
 
-ENV RUCIO_TASK_MANAGER_ROOT /opt/rucio-task-manager
+ENV RUCIO_TASK_MANAGER_ROOT=/opt/rucio-task-manager
 
 USER root
 
 # repo for oidc-agent
-RUN wget https://repo.data.kit.edu/data-kit-edu-centos7.repo -O /etc/yum.repos.d/data-kit-edu-centos7.repo
+RUN wget https://repo.data.kit.edu/data-kit-edu-almalinux9.repo -O /etc/yum.repos.d/data-kit-edu-almalinux9.repo
 
 RUN yum -y install wget vim python3 python3-devel openssl-devel swig gcc-c++ oidc-agent jq
 
@@ -20,17 +20,17 @@ RUN python3 -m pip install --upgrade pip wheel \
 
 COPY requirements.txt /tmp/requirements.txt
 
-# additional indices for ingestor and the rucio-extended-client
-RUN python3 -m pip install --no-build-isolation -r /tmp/requirements.txt --extra-index-url https://gitlab.com/api/v4/projects/51600992/packages/pypi/simple --extra-index-url https://gitlab.com/api/v4/projects/39600235/packages/pypi/simple
+# additional index for ska-src-mm-notification
+RUN python3 -m pip install --no-build-isolation -r /tmp/requirements.txt --extra-index-url https://gitlab.com/api/v4/projects/77880073/packages/pypi/simple
 
 COPY --chown=user . ${RUCIO_TASK_MANAGER_ROOT}
 
 WORKDIR ${RUCIO_TASK_MANAGER_ROOT}
 
-ENV TASK_FILE_RELPATH etc/tasks/stubs.yml
+ENV TASK_FILE_RELPATH=etc/tasks/stubs.yml
 
 USER user
 
-ENV DAVIX_DISABLE_SESSION_CACHING true
+ENV DAVIX_DISABLE_SESSION_CACHING=true
 
 ENTRYPOINT ["bash", "./etc/docker/docker-entrypoint.sh"]
