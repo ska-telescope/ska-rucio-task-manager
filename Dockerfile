@@ -1,5 +1,5 @@
-ARG BASE_RUCIO_CLIENT_IMAGE=rucio/rucio-clients
-ARG BASE_RUCIO_CLIENT_TAG=release-41.0.0
+ARG BASE_RUCIO_CLIENT_IMAGE=registry.gitlab.com/ska-telescope/src/src-dm/ska-src-dm-da-rucio-client/rucio-client-core-py313
+ARG BASE_RUCIO_CLIENT_TAG=41.0.0
 
 FROM $BASE_RUCIO_CLIENT_IMAGE:$BASE_RUCIO_CLIENT_TAG
 

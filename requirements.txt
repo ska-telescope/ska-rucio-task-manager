@@ -9,6 +9,7 @@ pyyaml
 rucio-clients==41.0.0
 rucio==41.0.0
 #ingestor
+ska-src-mm-notification
 slackclient
 uuid
 astropy
