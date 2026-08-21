@@ -7,7 +7,7 @@ test-ingestion-notification:
   kwargs:
     task_name: "ingestion_notification_test"
     n_files: 3
-    scope: "srcnet_test.comm"
+    scope: "testing"
     prefix: "test1"
     sizes: 100000
     source_dir: "/tmp/ingest-source"
