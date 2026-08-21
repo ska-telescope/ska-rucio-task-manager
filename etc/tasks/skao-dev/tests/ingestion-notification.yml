@@ -18,6 +18,7 @@ test-ingestion-notification:
     delay_s: 5
     output:
       databases:
+        # in-cluster monitoring ES (basic auth via ELASTICSEARCH_USERNAME/ELASTICSEARCH_PASSWORD env vars)
         - type: es
-          uri: https://monit.srcdev.skao.int:443/elastic
+          uri: https://monitoring.test:443/elastic
           index: rucio-task-manager.skao-dev.tasks.tests.ingestion-notification

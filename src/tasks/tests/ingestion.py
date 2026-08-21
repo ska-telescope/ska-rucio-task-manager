@@ -811,15 +811,21 @@ class TestIngestionRemoteNotification(Task):
             entry["success_rate"] = succeeded / (succeeded + failed) if (succeeded + failed) else 0.0
             entry["is_ingestion_successful"] = 0
 
-        # Push task output to databases.
+        # Push task output to databases. This is non-fatal: an unavailable monitoring
+        # endpoint should not fail an otherwise completed test.
         #
         if self.outputDatabases is not None:
             for database in self.outputDatabases:
                 if database["type"] == "es":
                     self.logger.info("Sending output to ES database: {}...".format(database['uri']))
-                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
-                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
-                    es.index(index=database["index"], id=entry['name'], body=entry)
+                    try:
+                        auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                        es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
+                        es.index(index=database["index"], id=entry['name'], body=entry)
+                    except Exception as e:
+                        self.logger.critical(
+                            "Failed to send output to ES database {}: {}".format(database['uri'], e)
+                        )
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
