@@ -1,0 +1,55 @@
+test-ingestion-ephemeral:
+  description: "Test ingestion by spinning up an ephemeral instance of the ska-src-ingestion service."
+  module_name: "tasks.tests.ingestion"
+  class_name: "TestIngestionEphemeral"
+  enabled: true
+  args:
+  kwargs:
+    task_name: "ingestion_test"
+    n_files: 3
+    scope: "testing"
+    lifetime: 3600
+    prefix: "test1"
+    sizes: 1000
+    # ingest_dir is omitted deliberately; a temporary base directory is created for the
+    # ephemeral service and removed once the test has finished.
+    metadata_schema: |-
+      {
+        "type": "object",
+        "version": 1,
+        "description": "Metadata schema for file ingestion.",
+        "properties": {
+          "namespace": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lifetime": {
+            "type": "number"
+          },
+          "dataset_name": {
+            "type": "string"
+          },
+          "meta": {
+            "type": "object"
+          }
+        },
+        "required": ["namespace", "name", "lifetime"],
+        "additionalProperties": true
+      }
+    metadata_suffix: meta
+    ingestion_backend_name: rucio
+    ingestion_polling_frequency_s: 5
+    ingestion_iteration_batch_size: 100
+    ingestion_n_processes: 1
+    rucio_ingest_rse_name: STFC_STORM
+    service_startup_timeout_s: 30
+    keep_base_dir: false
+    n_retries: 5
+    delay_s: 5
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.ingestion

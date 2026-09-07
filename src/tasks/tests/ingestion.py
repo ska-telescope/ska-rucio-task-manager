@@ -1,10 +1,8 @@
 import json
 import os
-import random
-import shutil
 import subprocess
+import tempfile
 import time
-import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -829,3 +827,417 @@ class TestIngestionRemoteNotification(Task):
 
         self.toc()
         self.logger.info("Finished in {}s".format(round(self.elapsed)))
+
+class TestIngestionEphemeral(Task):
+    """ Test ingestion by spinning up an ephemeral instance of the ska-src-ingestion service.
+
+    This follows the same test flow as TestIngestionRemote, but rather than relying on an
+    existing (long lived) instance of the service monitoring a shared staging area, an instance
+    is started for the duration of the test only and is torn down - along with its base
+    directory - once the test has finished.
+    """
+
+    # Name of the subdirectory of the service base directory that the service monitors, i.e. the
+    # lowercased name of ingestor's IngestState.STAGING.
+    staging_subdir = "staging"
+
+    def __init__(self, logger):
+        super().__init__(logger)
+        """
+        Initializes the class with the following attributes:
+        - n_files: The number of files to be created in the ingestion staging area.
+        - scope: The Rucio scope files will be ingested to.
+        - lifetime: The lifetime of the files in Rucio.
+        - prefix: Allows a custom prefix for the file names.
+        - sizes (array or int): The sizes of the files (bytes) to be created.
+        - ingest_dir: The base directory for the ephemeral service. If unset, a temporary
+            directory is created (and removed afterwards).
+        - metadata_schema (str): The expected metadata JSON schema.
+        - metadata_suffix: The expected metadata file suffix.
+        - ingestion_backend_name: The name of the ingestion backend to use.
+        - ingestion_polling_frequency_s: The frequency at which the ingestion service should poll
+            for new files.
+        - ingestion_iteration_batch_size: The number of files that the ingestion service should
+            batch together for ingestion per iteration.
+        - ingestion_n_processes: The number of processes the ingestion service should pool.
+        - rucio_ingest_rse_name: The (Rucio) identifier of the RSE to ingest data into.
+        - rucio_pfn_basepath: The PFN basepath (required for non-deterministic ingestion backends
+            only).
+        - service_startup_timeout_s: How long to wait for the service to create its staging area.
+        - keep_base_dir: Retain the service base directory after the test (useful for debugging).
+        - n_retries: The number of times to poll for files to be picked up and ingested.
+        - delay_s: The interval at which to poll at in seconds.
+
+        :param logger: The logger instance to be used for logging.
+        """
+        self.task_name = None
+        self.n_files = None
+        self.scope = None
+        self.lifetime = None
+        self.prefix = None
+        self.sizes = None
+        self.ingest_dir = None
+        self.metadata_schema = None
+        self.metadata_suffix = None
+        self.ingestion_backend_name = None
+        self.ingestion_polling_frequency_s = None
+        self.ingestion_iteration_batch_size = None
+        self.ingestion_n_processes = None
+        self.rucio_ingest_rse_name = None
+        self.rucio_pfn_basepath = None
+        self.service_startup_timeout_s = None
+        self.keep_base_dir = None
+        self.n_retries = None
+        self.delay_s = None
+        self.outputDatabases = None
+
+        self.service_process = None
+        self.service_log_path = None
+        self.is_base_dir_temporary = False
+
+    def start_ingest_service(self):
+        """ Start an ephemeral instance of the ingestion service as a child process.
+
+        The service is started in its own session so that the whole process group (the service
+        and the processes it pools) can be signalled on teardown.
+
+        :return: True if the service was started, else False.
+        """
+        # Write the metadata schema into the base directory for the service to pick up.
+        try:
+            metadata_schema = json.loads(self.metadata_schema)
+        except ValueError as e:
+            self.logger.critical("Could not parse the metadata schema.")
+            self.logger.critical(repr(e))
+            return False
+        metadata_schema_path = os.path.join(self.ingest_dir, "metadata_schema.json")
+        with open(metadata_schema_path, 'w') as f:
+            f.write(json.dumps(metadata_schema))
+
+        cmd = ['srcnet-tools-ingest',
+               '-d', self.ingest_dir,
+               '--frequency', str(self.ingestion_polling_frequency_s),
+               '--batch-size', str(self.ingestion_iteration_batch_size),
+               '--metadata-schema-path', metadata_schema_path,
+               '--metadata-suffix', self.metadata_suffix,
+               '--n-processes', str(self.ingestion_n_processes),
+               '--ingestion-backend-name', self.ingestion_backend_name,
+               '--rucio-ingest-rse-name', self.rucio_ingest_rse_name]
+        if self.rucio_pfn_basepath:
+            cmd = cmd + ['--rucio-pfn-basepath', self.rucio_pfn_basepath]
+
+        # The service is chatty and long lived, so its output is redirected to a log file in the
+        # base directory rather than being interleaved with the task output.
+        self.service_log_path = os.path.join(self.ingest_dir, "service.log")
+        self.logger.info("Starting ephemeral ingestion service: {}".format(" ".join(cmd)))
+        self.logger.info("Ingestion service log: {}".format(self.service_log_path))
+        try:
+            service_log = open(self.service_log_path, 'w')
+            self.service_process = subprocess.Popen(
+                cmd,
+                stdout=service_log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True
+            )
+        except OSError as e:
+            self.logger.critical("Could not start the ingestion service.")
+            self.logger.critical(repr(e))
+            return False
+
+        return self.wait_for_ingest_service()
+
+    def wait_for_ingest_service(self):
+        """ Wait for the ingestion service to create the staging area it monitors.
+
+        :return: True if the service came up in time, else False.
+        """
+        staging_dir = os.path.join(self.ingest_dir, self.staging_subdir)
+        deadline = time.time() + self.service_startup_timeout_s
+        while time.time() < deadline:
+            if self.service_process.poll() is not None:
+                self.logger.critical(
+                    "Ingestion service exited during startup with code {}".format(
+                        self.service_process.returncode
+                    )
+                )
+                self.log_ingest_service_output()
+                return False
+            if os.path.isdir(staging_dir):
+                self.logger.info("Ingestion service is monitoring {}".format(staging_dir))
+                return True
+            time.sleep(1)
+
+        self.logger.critical(
+            "Ingestion service did not create {} within {}s".format(
+                staging_dir,
+                self.service_startup_timeout_s
+            )
+        )
+        self.log_ingest_service_output()
+        return False
+
+    def log_ingest_service_output(self, n_lines=50):
+        """ Log the tail of the ingestion service log, e.g. to diagnose a failed test.
+
+        :param int n_lines: The number of lines from the end of the log to include.
+        """
+        if not self.service_log_path or not os.path.isfile(self.service_log_path):
+            return
+        with open(self.service_log_path) as f:
+            tail = f.readlines()[-n_lines:]
+        if not tail:
+            return
+        self.logger.critical("Last {} line(s) of the ingestion service log:".format(len(tail)))
+        for line in tail:
+            self.logger.critical("  {}".format(line.rstrip()))
+
+    def stop_ingest_service(self, timeout_s=30):
+        """ Stop the ephemeral ingestion service and the processes it pooled.
+
+        :param int timeout_s: How long to wait for a graceful exit before killing the service.
+        """
+        if not self.service_process or self.service_process.poll() is not None:
+            return
+
+        self.logger.info("Stopping ephemeral ingestion service...")
+        try:
+            process_group_id = os.getpgid(self.service_process.pid)
+        except OSError:
+            # The service exited between the poll above and here.
+            return
+
+        try:
+            os.killpg(process_group_id, signal.SIGTERM)
+            self.service_process.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            self.logger.warning(
+                "Ingestion service did not exit within {}s, killing it".format(timeout_s)
+            )
+            try:
+                os.killpg(process_group_id, signal.SIGKILL)
+                self.service_process.wait(timeout=timeout_s)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                self.logger.warning("Could not kill the ingestion service: {}".format(repr(e)))
+        except OSError as e:
+            self.logger.warning("Could not stop the ingestion service: {}".format(repr(e)))
+
+    def remove_base_dir(self):
+        """ Remove the base directory of the ephemeral service. """
+        if self.keep_base_dir:
+            self.logger.info(
+                "Retaining ingestion service base directory {}".format(self.ingest_dir)
+            )
+            return
+        self.logger.info("Removing ingestion service base directory {}".format(self.ingest_dir))
+        shutil.rmtree(self.ingest_dir, ignore_errors=True)
+
+    def run(self, args, kwargs):
+        super().run()
+        self.tic()
+        try:
+            self.task_name = kwargs["task_name"]
+            self.n_files = kwargs["n_files"]
+            self.scope = kwargs["scope"]
+            self.lifetime = kwargs["lifetime"]
+            self.prefix = kwargs["prefix"]
+            self.sizes = kwargs["sizes"]
+            self.ingest_dir = kwargs.get("ingest_dir")
+            self.metadata_schema = kwargs["metadata_schema"]
+            self.metadata_suffix = kwargs.get("metadata_suffix", "meta")
+            self.ingestion_backend_name = kwargs["ingestion_backend_name"]
+            self.ingestion_polling_frequency_s = kwargs["ingestion_polling_frequency_s"]
+            self.ingestion_iteration_batch_size = kwargs["ingestion_iteration_batch_size"]
+            self.ingestion_n_processes = kwargs.get("ingestion_n_processes", 1)
+            self.rucio_ingest_rse_name = kwargs["rucio_ingest_rse_name"]
+            self.rucio_pfn_basepath = kwargs.get("rucio_pfn_basepath")
+            self.service_startup_timeout_s = kwargs.get("service_startup_timeout_s", 30)
+            self.keep_base_dir = kwargs.get("keep_base_dir", False)
+            self.n_retries = kwargs["n_retries"]
+            self.delay_s = kwargs["delay_s"]
+            self.outputDatabases = kwargs["output"]["databases"]
+        except KeyError as e:
+            self.logger.critical("Could not find necessary kwarg for test.")
+            self.logger.critical(repr(e))
+            return False
+
+        # Validate kwargs
+        if isinstance(self.sizes, list):
+            if len(self.sizes) != self.n_files:
+                self.logger.critical(
+                    "File sizes array is a different length to n_files"
+                )
+                return False
+        elif isinstance(self.sizes, int):
+            self.sizes = [self.sizes] * self.n_files
+        else:
+            self.logger.critical("File sizes should either be a list or int")
+            return False
+
+        # Make the base directory for the ephemeral service, creating a temporary one if it
+        # hasn't been set explicitly.
+        if self.ingest_dir:
+            os.makedirs(self.ingest_dir, exist_ok=True)
+        else:
+            self.ingest_dir = tempfile.mkdtemp(prefix="ingest-ephemeral-")
+            self.is_base_dir_temporary = True
+
+        try:
+            return self.run_test()
+        finally:
+            self.stop_ingest_service()
+            self.remove_base_dir()
+
+    def run_test(self):
+        """ Start the ephemeral service, then generate and poll for ingested files. """
+        if not self.start_ingest_service():
+            return False
+
+        # Set up log message:
+        test_id = "ingestion_test_{}".format(datetime.now().isoformat())
+        entry = {
+            "task_name": self.task_name,
+            "name": test_id,
+            "scope": self.scope,
+            "n_files": self.n_files,
+            "lifetime": self.lifetime,
+            "attempted_at": datetime.now().isoformat(),
+        }
+
+        # Generate random files, and associated metadata files, of specified sizes and
+        # names in subdirectory of the service's staging directory with name equivalent to the
+        # scope:
+        new_names = []
+        for idx in range(self.n_files):
+            # Generate random file of size <size>
+            file = generateRandomFile(
+                self.sizes[idx],
+                prefix="{}_{}".format(self.prefix, idx),
+                dirname=os.path.join(self.ingest_dir, self.staging_subdir, self.scope)
+            )
+
+            file_path = file.name
+            file_name = os.path.basename(file_path)
+            new_names.append(file_name)
+
+            meta_dict = {
+                "name": file_name,
+                "namespace": self.scope,
+                "lifetime": self.lifetime,
+                "meta": getObsCoreMetadataDict(
+                    access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
+                        self.scope, file_name)
+                    )
+            }
+            with open("{}.{}".format(file_path, self.metadata_suffix), 'w') as meta_file:
+                json.dump(meta_dict, meta_file, indent=2)
+
+        # Poll for files (every <delay_s> sec) to be added by the ingestion service.
+        # Once found, will check metadata is set correctly too (there can be a short
+        # delay after upload for this to be set)
+        did_client = DIDClient()
+        max_retries = self.n_retries
+        succeeded = 0
+        failed = 0
+        for file_name in new_names:
+            retries = 0
+            while retries < max_retries:
+                try:
+                    did = did_client.get_did(self.scope, file_name)
+                    if did:
+                        # Test get metadata, since this is set via a separate call
+                        # following file ingestion
+                        retrieved_meta = did_client.get_metadata(
+                            did["scope"],
+                            did["name"],
+                            plugin="POSTGRES_JSON"
+                        )
+                        expected_meta = getObsCoreMetadataDict(
+                            access_url="https://ivoa.datalink.srcdev.skao.int/rucio/links?id={}:{}".format(
+                                self.scope, file_name)
+                            )
+                        if not retrieved_meta == expected_meta:
+                            self.logger.critical(
+                                "Metadata mismatch for DID: {}".format(did["name"])
+                            )
+                            failed += 1
+                            break
+                        self.logger.info(
+                            "DID found with expected metadata: {}".format(did)
+                        )
+                        succeeded += 1
+                        break
+                except DataIdentifierNotFound:
+                    # Likely because the ingestion service has not yet picked up the
+                    # newly created files
+                    did_name = "{}:{}".format(self.scope, file_name)
+                    if self.service_process.poll() is not None:
+                        self.logger.critical(
+                            "Ingestion service exited with code {} before DID {} was "
+                            "ingested".format(self.service_process.returncode, did_name)
+                        )
+                        self.log_ingest_service_output()
+                        failed += 1
+                        break
+                    self.logger.info(
+                        "Waiting for ingestion of DID {}...".format(did_name)
+                    )
+                    time.sleep(self.delay_s)
+                    retries += 1
+                    if retries == max_retries:
+                        self.logger.critical(
+                            "DID {} not found after {} sec".format(
+                                did_name,
+                                retries * self.delay_s
+                            )
+                        )
+                        self.log_ingest_service_output()
+                        failed += 1
+                        break
+                except Exception as e:
+                    self.logger.critical(
+                        "Error encountered when polling for data {}".format(e)
+                    )
+                    failed += 1
+                    break
+
+        if failed == 0:
+            self.logger.info(
+                "{}Successfully ingested {} / {} files.{}".format(
+                    bcolors.OKGREEN,
+                    succeeded,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
+            entry["succeeded_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-SUCCESSFUL"
+            entry["success_rate"] = 1.0
+            entry["is_ingestion_successful"] = 1
+        else:
+            self.logger.info(
+                "{}Failed to ingest {} / {} files.{}".format(
+                    bcolors.FAIL,
+                    failed,
+                    self.n_files,
+                    bcolors.ENDC
+                )
+            )
+            entry["failed_at"] = datetime.now().isoformat()
+            entry["state"] = "INGESTION-FAILED"
+            entry["success_rate"] = succeeded / (succeeded + failed)
+            entry["is_ingestion_successful"] = 0
+
+        # Push task output to databases.
+        #
+        if self.outputDatabases is not None:
+            for database in self.outputDatabases:
+                if database["type"] == "es":
+                    self.logger.info("Sending output to ES database: {}...".format(database['uri']))
+                    auth = (os.getenv("ELASTICSEARCH_USERNAME"), os.getenv("ELASTICSEARCH_PASSWORD"))
+                    es = Elasticsearch([database["uri"]], basic_auth=auth if all(auth) else None)
+                    es.index(index=database["index"], id=entry['name'], body=entry)
+
+        self.toc()
+        self.logger.info("Finished in {}s".format(round(self.elapsed)))
+
+        return failed == 0
