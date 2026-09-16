@@ -6,6 +6,7 @@ metadata:
   namespace: {{ $.Values.deployment.namespace }}
 spec:
   schedule: "{{ $val_cronjob.minute }} {{ $val_cronjob.hour }} {{ $val_cronjob.day }} {{ $val_cronjob.month }} {{ $val_cronjob.weekday }}"
+  concurrencyPolicy: {{ $val_cronjob.concurrencyPolicy | default "Forbid" }}
   jobTemplate:
     spec:
       backoffLimit: {{ $val_cronjob.backoffLimit | default 3 }}
