@@ -1290,6 +1290,8 @@ class TestIngestionEphemeralSingleSweep(Task):
         - sizes (array or int): The approximate sizes of the FITS files (bytes) to be created.
         - ingest_dir: The base directory for the ephemeral service. If unset, a temporary
             directory is created (and removed afterwards).
+        - ingest_cli: The name (or path) of the ingestion service CLI. It is provided by the
+            ska-src-dm-di-ingestor package, which must be installed alongside this task.
         - notification_file_suffix: The notification file suffix expected by the ingestor.
         - project_id: The project identifier to set in the notification file.
         - ingestion_states: The ingest states (comma separated, in order) the single sweep
@@ -1318,6 +1320,7 @@ class TestIngestionEphemeralSingleSweep(Task):
         self.prefix = None
         self.sizes = None
         self.ingest_dir = None
+        self.ingest_cli = None
         self.notification_file_suffix = None
         self.project_id = None
         self.ingestion_states = None
@@ -1411,7 +1414,7 @@ class TestIngestionEphemeralSingleSweep(Task):
 
         :return: True if the service was started, else False.
         """
-        cmd = ['srcnet-ingest',
+        cmd = [self.ingest_cli,
                '-d', self.ingest_dir,
                '--run-once',
                '--states', self.ingestion_states,
@@ -1564,6 +1567,7 @@ class TestIngestionEphemeralSingleSweep(Task):
             self.prefix = kwargs["prefix"]
             self.sizes = kwargs["sizes"]
             self.ingest_dir = kwargs.get("ingest_dir")
+            self.ingest_cli = kwargs.get("ingest_cli", "srcnet-ingest")
             self.notification_file_suffix = kwargs.get("notification_file_suffix", "ingest.notification")
             self.project_id = kwargs.get("project_id", "rucio-task-manager-test")
             self.ingestion_states = kwargs.get("ingestion_states", self.default_ingestion_states)
@@ -1597,6 +1601,19 @@ class TestIngestionEphemeralSingleSweep(Task):
         else:
             self.logger.critical("File sizes should either be a list or int")
             return False
+
+        # Fail fast if the ingestion service CLI is not available before anything is staged or
+        # started. The CLI is provided by the ska-src-dm-di-ingestor package, which is installed
+        # into the task-manager image by the Dockerfile (mirroring the ingestor's own image).
+        ingest_cli_path = shutil.which(self.ingest_cli)
+        if not ingest_cli_path:
+            self.logger.critical(
+                "Ingestion service CLI '{}' not found on PATH. Install the "
+                "ska-src-dm-di-ingestor package (which provides it) in this environment, or "
+                "point the ingest_cli kwarg at the CLI executable.".format(self.ingest_cli)
+            )
+            return False
+        self.ingest_cli = ingest_cli_path
 
         # Make the base directory for the ephemeral service, creating a temporary one if it
         # hasn't been set explicitly.

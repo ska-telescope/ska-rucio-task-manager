@@ -12,6 +12,10 @@ test-ingestion-ephemeral-single-sweep:
     sizes: 100000
     # ingest_dir is omitted deliberately; a temporary base directory is created for the
     # ephemeral service and removed once the test has finished.
+    # ingest_cli defaults to "srcnet-ingest", the CLI of the ska-src-dm-di-ingestor package,
+    # which is installed into the task-manager image by the Dockerfile. The test fails fast
+    # if it cannot be found; set this kwarg to the path of the CLI executable if it is
+    # installed somewhere off PATH.
     notification_file_suffix: "ingest.notification"
     project_id: "rucio-task-manager-test"
     # The states swept (once, in order) and the pipelines used per state default to those of
