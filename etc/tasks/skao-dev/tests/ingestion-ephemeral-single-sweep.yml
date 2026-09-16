@@ -26,7 +26,11 @@ test-ingestion-ephemeral-single-sweep:
     ingestion_n_processes: 1
     data_ingestion_backend_name: rucio
     metadata_ingestion_backend_name: rucio
-    rucio_ingest_rse_name: STFC_STORM
+    # The RSE to ingest into must exist on the Rucio instance the deployment points at. The
+    # local dev deployment registers NODE1_SITE1_STORM1 (the same RSE its Data Ingestor
+    # deployment ingests into); use e.g. STFC_STORM when running against the remote skao-dev
+    # Rucio instead.
+    rucio_ingest_rse_name: NODE1_SITE1_STORM1
     keep_base_dir: false
     n_retries: 5
     delay_s: 5

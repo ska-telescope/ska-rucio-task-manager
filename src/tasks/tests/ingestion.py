@@ -14,7 +14,8 @@ import numpy as np
 from astropy.io import fits
 from elasticsearch import Elasticsearch
 from rucio.client.didclient import DIDClient
-from rucio.common.exception import DataIdentifierNotFound
+from rucio.client.rseclient import RSEClient
+from rucio.common.exception import DataIdentifierNotFound, RSENotFound
 from ska_src_mm_notification import NotificationBuilder
 
 from tasks.task import Task
@@ -1614,6 +1615,22 @@ class TestIngestionEphemeralSingleSweep(Task):
             )
             return False
         self.ingest_cli = ingest_cli_path
+
+        # Fail fast if the RSE to ingest into does not exist on the Rucio instance this
+        # deployment points at (e.g. a task configuration written for a different environment),
+        # otherwise the sweep's uploads fail mid-test with an InvalidRSEExpression buried in
+        # the service log.
+        rse_client = RSEClient()
+        try:
+            rse_client.get_rse(self.rucio_ingest_rse_name)
+        except RSENotFound:
+            available_rses = sorted(rse["rse"] for rse in rse_client.list_rses())
+            self.logger.critical(
+                "RSE '{}' not found on the Rucio instance this deployment points at; set the "
+                "rucio_ingest_rse_name kwarg to one of the available RSEs: {}".format(
+                    self.rucio_ingest_rse_name, ", ".join(available_rses) or "(none)")
+            )
+            return False
 
         # Make the base directory for the ephemeral service, creating a temporary one if it
         # hasn't been set explicitly.
