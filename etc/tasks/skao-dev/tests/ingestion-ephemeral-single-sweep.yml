@@ -1,0 +1,33 @@
+test-ingestion-ephemeral-single-sweep:
+  description: "Test notification-based ingestion by running an ephemeral instance of the ska-src-dm-di-ingestor service for a single ingestion sweep."
+  module_name: "tasks.tests.ingestion"
+  class_name: "TestIngestionEphemeralSingleSweep"
+  enabled: true
+  args:
+  kwargs:
+    task_name: "ingestion_single_sweep_test"
+    n_files: 3
+    scope: "testing"
+    prefix: "test1"
+    sizes: 100000
+    # ingest_dir is omitted deliberately; a temporary base directory is created for the
+    # ephemeral service and removed once the test has finished.
+    notification_file_suffix: "ingest.notification"
+    project_id: "rucio-task-manager-test"
+    # The states swept (once, in order) and the pipelines used per state default to those of
+    # the current ska-src-dm-di-ingestor deployment; they can be overridden with the
+    # ingestion_states and ingestion_pipelines_fqn kwargs if needed.
+    ingestion_polling_frequency_s: 1
+    ingestion_iteration_batch_size: 50
+    ingestion_n_processes: 1
+    data_ingestion_backend_name: rucio
+    metadata_ingestion_backend_name: rucio
+    rucio_ingest_rse_name: STFC_STORM
+    keep_base_dir: false
+    n_retries: 5
+    delay_s: 5
+    output:
+      databases:
+        - type: es
+          uri: https://monit.srcdev.skao.int:443/elastic
+          index: rucio-task-manager.skao-dev.tasks.tests.ingestion-ephemeral-single-sweep
