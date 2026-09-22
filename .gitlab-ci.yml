@@ -2,9 +2,22 @@ image: docker:git
 services:
 - docker:dind
 
+variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
 stages:
-- build
-- helm-publish
+    - lint
+    - lint-post
+    - build
+    - test
+    - publish
+    - helm-publish
+    - pages
+    - scan
+
+include:
+  - project: 'ska-telescope/templates-repository'
+    file: 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
 
 build:
   only:
